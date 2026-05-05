@@ -28,11 +28,16 @@ class ReprocessJournalImageJob < ApplicationJob
     source.write(raw)
     source.rewind
 
+    # Pass both `strip` (libvips < 8.15) and `keep` (libvips 8.15+) saver options;
+    # ImageProcessing filters via vips_foreign_find_save introspection, keeping
+    # whichever the installed libvips actually supports.
+    saver_options = { quality: 85, strip: true }
+    saver_options[:keep] = ::Vips::ForeignKeep::NONE if defined?(::Vips::ForeignKeep)
+
     processed = ImageProcessing::Vips
       .source(source)
-      .strip
       .convert("jpg")
-      .saver(quality: 85)
+      .saver(**saver_options)
       .call
 
     blob.upload(processed, identify: false)
