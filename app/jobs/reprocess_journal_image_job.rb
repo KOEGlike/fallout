@@ -26,7 +26,7 @@ class ReprocessJournalImageJob < ApplicationJob
 
     source = Tempfile.new(["journal_image", ".bin"], binmode: true)
     source.write(raw)
-    source.rewind
+    source.close # flush Ruby's IO buffer to disk before libvips opens the path
 
     # Pass both `strip` (libvips < 8.15) and `keep` (libvips 8.15+) saver options;
     # ImageProcessing filters via vips_foreign_find_save introspection, keeping
@@ -35,18 +35,16 @@ class ReprocessJournalImageJob < ApplicationJob
     saver_options[:keep] = ::Vips::ForeignKeep::NONE if defined?(::Vips::ForeignKeep)
 
     processed = ImageProcessing::Vips
-      .source(source)
+      .source(source.path)
       .convert("jpg")
       .saver(**saver_options)
       .call
 
+    # blob.upload calls unfurl which sets checksum, byte_size, content_type on the
+    # in-memory blob; we set content_type beforehand so identify: false leaves it alone.
+    blob.content_type = "image/jpeg"
     blob.upload(processed, identify: false)
-    blob.update!(
-      content_type: "image/jpeg",
-      byte_size: processed.size,
-      checksum: blob.class.compute_checksum_in_chunks(processed.tap(&:rewind)),
-      metadata: blob.metadata.merge("reprocessed" => true)
-    )
+    blob.update!(metadata: blob.metadata.merge("reprocessed" => true))
   ensure
     source&.close
     source&.unlink
