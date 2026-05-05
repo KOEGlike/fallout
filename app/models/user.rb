@@ -70,7 +70,6 @@ class User < ApplicationRecord
 
   has_many :ahoy_visits, class_name: "Ahoy::Visit", dependent: :nullify
   has_many :ahoy_events, class_name: "Ahoy::Event", dependent: :nullify
-  has_one :latest_locatable_visit, -> { where.not(country: [ nil, "" ]).order(started_at: :desc) }, class_name: "Ahoy::Visit"
   has_many :projects, dependent: :destroy
   has_many :ships, through: :projects
   has_many :reviewed_ships, class_name: "Ship", foreign_key: :reviewer_id, dependent: :nullify, inverse_of: :reviewer
@@ -464,14 +463,21 @@ class User < ApplicationRecord
     "M1Rx186e"
   end
 
-  def self.airtable_sync_scope(query)
-    query.includes(:latest_locatable_visit)
-  end
-
   def self.airtable_sync_preload(records)
     user_ids = records.map(&:id)
+    # DISTINCT ON returns one row per user_id (the latest locatable visit), backed by
+    # the partial index index_ahoy_visits_on_user_locatable. Replaces a scoped has_one
+    # eager-load that pulled every visit for every user and sorted in Ruby.
+    latest_visit_country = Ahoy::Visit
+      .where(user_id: user_ids)
+      .where.not(country: [ nil, "" ])
+      .select("DISTINCT ON (user_id) user_id, country")
+      .order(:user_id, started_at: :desc)
+      .each_with_object({}) { |v, h| h[v.user_id] = v.country }
+
     {
-      first_project_created_at: Project.kept.where(user_id: user_ids).group(:user_id).minimum(:created_at)
+      first_project_created_at: Project.kept.where(user_id: user_ids).group(:user_id).minimum(:created_at),
+      latest_visit_country: latest_visit_country
     }
   end
 
@@ -482,8 +488,8 @@ class User < ApplicationRecord
       "Display Name" => :display_name,
       "First Name" => :first_name,
       "Last Name" => :last_name,
-      "Country" => ->(u) {
-        u.country.presence || User.normalize_country_code(u.latest_locatable_visit&.country)
+      "Country" => ->(u, pre) {
+        u.country.presence || User.normalize_country_code(pre[:latest_visit_country][u.id])
       },
       "First Project Created At" => ->(u, pre) { pre[:first_project_created_at][u.id]&.iso8601 },
       "Created At" => ->(u) { u.created_at&.iso8601 },
