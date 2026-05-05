@@ -24,8 +24,12 @@ class ReprocessJournalImageJob < ApplicationJob
     # If we've already reprocessed (checksum prefix marker), bail.
     return if blob.metadata["reprocessed"] == true
 
+    source = Tempfile.new(["journal_image", ".bin"], binmode: true)
+    source.write(raw)
+    source.rewind
+
     processed = ImageProcessing::Vips
-      .source(StringIO.new(raw))
+      .source(source)
       .strip
       .convert("jpg")
       .saver(quality: 85)
@@ -39,6 +43,8 @@ class ReprocessJournalImageJob < ApplicationJob
       metadata: blob.metadata.merge("reprocessed" => true)
     )
   ensure
+    source&.close
+    source&.unlink
     processed&.close if processed.respond_to?(:close)
     processed&.unlink if processed.respond_to?(:unlink)
   end

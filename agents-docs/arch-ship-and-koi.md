@@ -209,8 +209,8 @@ The "submission held until verified" mechanism:
 1. `Projects::ShipsController#create` sets `status: :awaiting_identity` if user not `fully_identity_gated?`.
 2. Ship's `after_create :create_initial_reviews!, if: :pending?` → reviews **are NOT** created yet.
 3. UI shows the "Submitted!" page with "your submission is on hold" copy. User feels submitted; reviewers see nothing.
-4. `HcaIdentityRefreshJob` periodically polls HCA for users with `verification_status != 'verified'` OR `has_hca_address = false` (filtered to those with a stored HCA token).
-5. `User#refresh_identity_cache!` calls HCA, then `apply_identity_cache!` updates the user's verification fields.
+4. `HcaIdentityRefreshJob` periodically polls HCA for users with `verification_status != 'verified'` OR `has_hca_address = false` OR `first_name IS NULL` (filtered to those with a stored HCA token). The `first_name IS NULL` clause backfills the name/country cache for users who were already fully gated when that cache was added.
+5. `User#refresh_identity_cache!` calls HCA, then `apply_identity_cache!` updates the user's cached identity fields (`verification_status`, `has_hca_address`, `first_name`, `last_name`, `country`). The non-status fields exist so batch jobs (e.g. the user → Airtable cron) can read names/country off the row instead of hitting HCA once per user.
 6. If user transitions to `fully_identity_gated?` for the first time: `Ship.promote_awaiting_identity_for(user)` flips all their held ships to `:pending`.
 7. The ship's `after_update_commit :create_initial_reviews!, if: :became_pending_from_awaiting?` fires and seeds the reviews.
 8. Promotion is **one-way**: `clear_hca_session!` deliberately does NOT demote already-promoted ships, since reviewers may already be working on them.

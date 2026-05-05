@@ -8,8 +8,11 @@ class HcaIdentityRefreshJob < ApplicationJob
   # flip one way, so we can stop polling a user as soon as they reach fully_identity_gated?.
   def perform
     # hca_token is encrypted (non-deterministic), so we can only filter on IS NOT NULL here.
+    # We also keep polling any user missing a cached first_name so the identity-cache columns
+    # (first_name/last_name/country, used by AirtableSync to avoid N HCA calls) get backfilled
+    # for users who became fully_identity_gated before that cache existed.
     scope = User.verified.kept.where.not(hca_token: nil)
-                .where("verification_status IS DISTINCT FROM 'verified' OR has_hca_address = false")
+                .where("verification_status IS DISTINCT FROM 'verified' OR has_hca_address = false OR first_name IS NULL")
 
     scope.find_each do |user|
       user.refresh_identity_cache!

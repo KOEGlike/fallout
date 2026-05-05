@@ -220,18 +220,34 @@ class User < ApplicationRecord
     :unverified
   end
 
-  # Sync cached identity fields (verification_status + has_hca_address) from an HCA identity
-  # hash we already have. Returns true if anything changed. Promotes any held ships when the
-  # user flips to fully_identity_gated?.
+  # Sync cached identity fields from an HCA identity hash we already have. Avoids re-hitting
+  # HCA in batch contexts (airtable sync, admin views). Returns true if anything changed.
+  # Promotes any held ships when the user flips to fully_identity_gated?.
   def apply_identity_cache!(identity)
     return false if identity.blank?
 
     new_status = identity["verification_status"].to_s
     new_has_addr = identity["addresses"].is_a?(Array) && identity["addresses"].any?
-    return false if new_status == verification_status.to_s && new_has_addr == has_hca_address?
+    new_first = identity["first_name"].presence
+    new_last = identity["last_name"].presence
+    primary_country = identity["addresses"].is_a?(Array) ? identity["addresses"].find { |a| a["primary"] }&.dig("country") : nil
+    new_country = User.normalize_country_code(primary_country)
+
+    unchanged = new_status == verification_status.to_s &&
+                new_has_addr == has_hca_address? &&
+                new_first == first_name &&
+                new_last == last_name &&
+                new_country == country
+    return false if unchanged
 
     was_gated = fully_identity_gated?
-    update!(verification_status: new_status, has_hca_address: new_has_addr)
+    update!(
+      verification_status: new_status,
+      has_hca_address: new_has_addr,
+      first_name: new_first,
+      last_name: new_last,
+      country: new_country
+    )
     Ship.promote_awaiting_identity_for(self) if !was_gated && fully_identity_gated?
     true
   end
@@ -464,12 +480,10 @@ class User < ApplicationRecord
       "ID" => :id,
       "Email" => :email,
       "Display Name" => :display_name,
-      "First Name" => ->(u) { u.hca_identity&.dig("first_name") },
-      "Last Name" => ->(u) { u.hca_identity&.dig("last_name") },
+      "First Name" => :first_name,
+      "Last Name" => :last_name,
       "Country" => ->(u) {
-        raw = u.hca_identity&.dig("addresses")&.find { |a| a["primary"] }&.dig("country") ||
-              u.latest_locatable_visit&.country
-        User.normalize_country_code(raw)
+        u.country.presence || User.normalize_country_code(u.latest_locatable_visit&.country)
       },
       "First Project Created At" => ->(u, pre) { pre[:first_project_created_at][u.id]&.iso8601 },
       "Created At" => ->(u) { u.created_at&.iso8601 },

@@ -88,6 +88,10 @@ device_token        string          -- nil for full users
 discarded_at        datetime        -- soft delete timestamp
 is_adult            boolean NOT NULL default=false
 verification_status string
+has_hca_address     boolean NOT NULL default=false
+first_name          string          -- cached from HCA identity for batch sync use
+last_name           string          -- cached from HCA identity for batch sync use
+country             string          -- ISO2 code from HCA primary address (normalized)
 created_at/updated_at datetime
 ```
 
