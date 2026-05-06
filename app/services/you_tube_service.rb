@@ -70,7 +70,7 @@ module YouTubeService
 
     unless response.success?
       ErrorReporter.capture_message("YouTube video fetch failed", level: :warning, contexts: {
-        youtube: { status: response.status, video_id: video_id, source: "data_api" }
+        youtube: { status: response.status, video_id: video_id, source: "data_api", body: response.body.to_s.first(500) }
       })
       return nil
     end
