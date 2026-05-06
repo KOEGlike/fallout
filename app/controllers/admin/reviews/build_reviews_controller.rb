@@ -23,11 +23,11 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
     time_audit = ship.time_audit_review
 
     new_entries = ship.new_journal_entries
-      .includes(:user, :images_attachments, recordings: :recordable)
+      .includes(:user, images_attachments: :blob, recordings: :recordable)
       .order(created_at: :asc)
 
     previous_entries = ship.previous_journal_entries
-      .includes(:user, :images_attachments, recordings: :recordable)
+      .includes(:user, images_attachments: :blob, recordings: :recordable)
       .order(created_at: :asc)
 
     render inertia: {
