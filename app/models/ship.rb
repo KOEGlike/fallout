@@ -240,23 +240,28 @@ class Ship < ApplicationRecord
 
   def recompute_status!
     new_status = derive_status
-    sync_approved_public_seconds_from_ta!
     if status != new_status
       attrs = { status: new_status }
       # Aggregate reviewer feedback onto the ship so MailDeliveryService includes it in notifications
       attrs[:feedback] = aggregate_return_feedback if new_status == "returned"
+      # ship.approved_public_seconds is the *fully-approved* number — only populated when
+      # the ship reaches :approved, cleared on any other transition. The TA-level value
+      # (time_audit_review.approved_public_seconds) stays set independently when the TA
+      # approves; this column mirrors it only after RC + DR/BR also pass. This keeps
+      # `ships.approved_public_seconds > 0` a self-describing invariant for "ship is
+      # fully approved" — raw SQL aggregations don't need a status filter.
+      if new_status == "approved"
+        ta = time_audit_review
+        if ta&.approved? && ta.approved_public_seconds.present?
+          sync_youtube_stretch_multipliers!(ta)
+          attrs[:approved_public_seconds] = ta.approved_public_seconds
+        end
+      elsif approved_public_seconds.present?
+        attrs[:approved_public_seconds] = nil
+      end
       update!(attrs)
     end
     cancel_pending_reviews! if returned? || rejected?
-  end
-
-  # Keep ship.approved_public_seconds in sync with the TA review's approved_public_seconds
-  def sync_approved_public_seconds_from_ta!
-    ta = time_audit_review
-    return unless ta&.approved? && ta.approved_public_seconds.present?
-    sync_youtube_stretch_multipliers!(ta)
-    return if approved_public_seconds == ta.approved_public_seconds
-    update_columns(approved_public_seconds: ta.approved_public_seconds)
   end
 
   # approved_public_seconds + DR/BR hours_adjustment. Phase 2 reviewers can credit

@@ -62,7 +62,7 @@ ship = @project.ships.build(
 | `status` | enum: `pending`, `approved`, `returned`, `rejected`, `awaiting_identity` |
 | `ship_type` | enum (prefix `ship_type_`): `design` (default 0), `build` (1) — chooses Phase 2 reviewer |
 | `frozen_demo_link`, `frozen_repo_link`, `frozen_screenshot`, `frozen_hca_data` | snapshot at submission. `frozen_hca_data` is `serialize :json` + `encrypts` |
-| `approved_public_seconds` | denormalized from `time_audit_review.approved_public_seconds` (kept in sync via `sync_approved_public_seconds_from_ta!`). Set when TA approves; does NOT mean the ship has been fully approved. |
+| `approved_public_seconds` | mirrored from `time_audit_review.approved_public_seconds` **only when the ship reaches `:approved`** (set inside `recompute_status!` in the same `update!` as the status flip; cleared on any other transition). Self-describing: `approved_public_seconds > 0` ⇒ ship is fully approved. |
 | `feedback`, `justification` | `feedback` aggregated from sibling returned-review feedback when status flips to `returned` |
 | `preflight_results`, `preflight_run_id` | snapshot of preflight checks at submit time + reference to the run |
 
@@ -231,7 +231,7 @@ The TA is responsible for converting raw recording duration into `approved_publi
 
 `Ship#total_hours` (used in admin context) re-computes from kept journal entries via raw SQL summing the per-recordable duration columns, divides by 3600.
 
-`Ship#sync_approved_public_seconds_from_ta!` mirrors `time_audit_review.approved_public_seconds` onto `ship.approved_public_seconds` whenever the TA approves — used as the public hours number. Note: this column is populated as soon as the TA approves, before the rest of the review pipeline (RC + DR/BR) finishes — so a value > 0 does NOT mean the ship is fully approved.
+`Ship#recompute_status!` mirrors `time_audit_review.approved_public_seconds` onto `ship.approved_public_seconds` **only when the ship transitions to `:approved`** (set inside the same `update!` as the status flip, so `award_ship_review_koi!` sees the populated value). Any transition to a non-approved status clears the column. The TA's own `approved_public_seconds` stays set independently from the moment the TA reviewer approves — that's the per-review record. The ship-level column is the gated, full-pipeline value: `ships.approved_public_seconds > 0` ⇔ ship is fully approved.
 
 `Ship#approved_internal_seconds` (admin-only display) = `approved_public_seconds + design_review.hours_adjustment + build_review.hours_adjustment`. Returns an integer (always); display callers convert to hours and render `nil` when zero.
 
@@ -248,7 +248,7 @@ The system tracks three distinct hour concepts. They have different audiences, d
 | Concept | What it represents | Where stored / computed | Who controls it |
 |---|---|---|---|
 | **Logged time** | What the user *claims* — the raw input from recordings | `Project#time_logged`, `Ship#total_hours` (re-aggregated SQL over recordings) | The user (by uploading timelapses / videos) |
-| **User-facing approved time** | The TA-blessed subset of logged time | `ship.approved_public_seconds` (mirrored from `time_audit_review.approved_public_seconds` via `sync_approved_public_seconds_from_ta!`) | The TA reviewer |
+| **User-facing approved time** | The TA-blessed subset of logged time, gated by full-pipeline approval | `ship.approved_public_seconds` (mirrored from `time_audit_review.approved_public_seconds` only when ship reaches `:approved`; cleared otherwise) | The TA reviewer (value), full pipeline (gating) |
 | **Internal approved time** | User-facing + Phase 2 adjustments — the *operator's* view | `Ship#approved_internal_seconds` = `approved_public_seconds + design_review.hours_adjustment + build_review.hours_adjustment` | TA + DR + BR reviewers, combined |
 
 Internal approved time is **derived on read** via `Ship#approved_internal_seconds` — there's no column. Display sites (admin controllers) wrap it with a nil-when-zero helper so the UI shows blank instead of "0.0h" before any reviews settle.
@@ -476,7 +476,7 @@ Both `User#koi` and `User#gold` short-circuit to `0` for trial users. `ShopOrder
 | Identity gate flapping | Promotion is one-way; `clear_hca_session!` does not demote |
 | Project flag mid-review | `available_for` excludes flagged ships from queues; `*ReviewPolicy#show?` blocks non-admin view |
 | Admin overriding terminal status | `Ship#status_transition_allowed` model validation prevents it; `ShipPolicy#update?` is `admin?` only but the validation still fires |
-| YouTube stretch_multiplier race with hours aggregation | TA annotation is the source of truth; `sync_youtube_stretch_multipliers!` runs before `sync_approved_public_seconds_from_ta!` so aggregation queries see the right value |
+| YouTube stretch_multiplier race with hours aggregation | TA annotation is the source of truth; `sync_youtube_stretch_multipliers!` runs inside `recompute_status!` before the column is populated on the `:approved` transition, so aggregation queries see the right value |
 | Notification failure rolling back review | `notify_status_change` rescues all exceptions and logs; review save commits regardless |
 
 ---
