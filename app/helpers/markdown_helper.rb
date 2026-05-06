@@ -33,7 +33,7 @@ module MarkdownHelper
   ].freeze
 
   def self.canonical_base_url
-    host = ENV["APPLICATION_HOST"]
+    host = ENV["APP_HOST"]
     host.present? ? "https://#{host}" : nil
   end
 
