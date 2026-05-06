@@ -653,13 +653,13 @@ export default function ProjectsShow({
                   <TooltipTrigger asChild>
                     <a
                       href={`/projects/${project.id}/export_journal`}
-                      aria-label="Export journal markdown"
+                      aria-label="Export journal.md"
                       className="bg-brown text-light-brown border-2 border-dark-brown rounded px-3 h-10 flex items-center justify-center hover:opacity-80 cursor-pointer text-xs font-bold uppercase"
                     >
-                      journal.md
+                      Export
                     </a>
                   </TooltipTrigger>
-                  <TooltipContent>Export journal markdown</TooltipContent>
+                  <TooltipContent>Export journal.md</TooltipContent>
                 </Tooltip>
               )}
             </div>
