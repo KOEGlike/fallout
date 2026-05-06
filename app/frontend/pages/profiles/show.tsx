@@ -534,15 +534,16 @@ function ProfileShow({
         <ProgressBar progress={approvedProgress} secondaryProgress={totalProgress} trackClassName="bg-beige" />
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-1">
           <span className="text-brown text-sm font-medium mt-1 block text-center">
-            Approved:{' '}
-            {`${approved_hours ?? 0}h / ${HOURS_GOAL}h`}
+            Approved: {`${approved_hours ?? 0}h / ${HOURS_GOAL}h`}
           </span>
           <span className="text-brown text-sm font-medium mt-1 block text-center">
             Total: {total_hours ?? 0}h / {HOURS_GOAL}h
           </span>
         </div>
         {(approved_hours ?? 0) >= HOURS_GOAL && (
-          <span className="text-brown text-sm font-medium mt-1 block text-center">YIPPPEEEE! Congrats on qualifying! -Soup</span>
+          <span className="text-brown text-sm font-medium mt-1 block text-center">
+            YIPPPEEEE! Congrats on qualifying! -Soup
+          </span>
         )}
       </div>
     </div>
@@ -596,7 +597,6 @@ function ProfileShow({
                   : { backgroundColor: 'white' }
               }
             >
-              
               {selectedEar && <img src={selectedEar} alt="" className="absolute inset-0 w-full h-full object-cover" />}
               {selectedBody && (
                 <img src={selectedBody} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -607,7 +607,7 @@ function ProfileShow({
               {selectedCheek && (
                 <img src={selectedCheek} alt="" className="absolute inset-0 w-full h-full object-cover" />
               )}
-              
+
               {selectedMouth && (
                 <img src={selectedMouth} alt="" className="absolute inset-0 w-full h-full object-cover" />
               )}

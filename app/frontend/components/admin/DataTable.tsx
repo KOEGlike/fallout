@@ -47,7 +47,14 @@ function PagyInfo({ pagy, noun = 'results' }: { pagy: PagyProps; noun?: string }
   )
 }
 
-export function DataTable<TData, TValue>({ columns, data, pagy, noun, pageParam, rowClassName }: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  pagy,
+  noun,
+  pageParam,
+  rowClassName,
+}: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
 
   const table = useReactTable({

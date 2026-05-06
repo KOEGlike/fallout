@@ -103,7 +103,11 @@ function EditableRow({
   return (
     <TableRow className="align-top">
       <TableCell>
-        <select value={row.status} onChange={(e) => onChange('status', e.target.value)} className={`${inputClass} whitespace-nowrap`}>
+        <select
+          value={row.status}
+          onChange={(e) => onChange('status', e.target.value)}
+          className={`${inputClass} whitespace-nowrap`}
+        >
           <option value="available">Available</option>
           <option value="unavailable">Unavailable</option>
         </select>

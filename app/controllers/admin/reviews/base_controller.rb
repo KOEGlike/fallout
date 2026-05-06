@@ -276,5 +276,4 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
       [ url, url ? nil : :not_found ]
     end
   end
-
 end

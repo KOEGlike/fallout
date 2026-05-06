@@ -4,7 +4,6 @@
 #                                             Prefix Verb   URI Pattern                                                                                   Controller#Action
 #                                                    GET    /(*path)(.:format)                                                                            redirect(301) {host: "127.0.0.1"}
 #                                         admin_root GET    /admin(.:format)                                                                              admin/dashboard#index
-#                                  admin_other_stats GET    /admin/other_stats(.:format)                                                                  admin/other_stats#index
 #                 heartbeat_admin_reviews_time_audit POST   /admin/reviews/time_audits/:id/heartbeat(.:format)                                            admin/reviews/time_audits#heartbeat
 #                     next_admin_reviews_time_audits GET    /admin/reviews/time_audits/next(.:format)                                                     admin/reviews/time_audits#next
 #                          admin_reviews_time_audits GET    /admin/reviews/time_audits(.:format)                                                          admin/reviews/time_audits#index
@@ -44,10 +43,23 @@
 #                                         admin_user GET    /admin/users/:id(.:format)                                                                    admin/users#show
 #                                        admin_ships GET    /admin/reviews(.:format)                                                                      admin/ships#index
 #                                         admin_ship GET    /admin/reviews/:id(.:format)                                                                  admin/ships#show
+#                 bulk_destroy_admin_bulletin_events DELETE /admin/bulletin_events/bulk_destroy(.:format)                                                 admin/bulletin_events#bulk_destroy
+#              destroy_expired_admin_bulletin_events DELETE /admin/bulletin_events/destroy_expired(.:format)                                              admin/bulletin_events#destroy_expired
+#                     start_now_admin_bulletin_event PATCH  /admin/bulletin_events/:id/start_now(.:format)                                                admin/bulletin_events#start_now
+#               force_start_now_admin_bulletin_event PATCH  /admin/bulletin_events/:id/force_start_now(.:format)                                          admin/bulletin_events#force_start_now
+#                       end_now_admin_bulletin_event PATCH  /admin/bulletin_events/:id/end_now(.:format)                                                  admin/bulletin_events#end_now
+#                              admin_bulletin_events GET    /admin/bulletin_events(.:format)                                                              admin/bulletin_events#index
+#                                                    POST   /admin/bulletin_events(.:format)                                                              admin/bulletin_events#create
+#                               admin_bulletin_event PATCH  /admin/bulletin_events/:id(.:format)                                                          admin/bulletin_events#update
+#                                                    PUT    /admin/bulletin_events/:id(.:format)                                                          admin/bulletin_events#update
+#                                                    DELETE /admin/bulletin_events/:id(.:format)                                                          admin/bulletin_events#destroy
 #                               mission_control_jobs        /jobs                                                                                         MissionControl::Jobs::Engine
 #                                                           /flipper                                                                                      Flipper::UI
+#                update_manual_seconds_admin_project PATCH  /admin/projects/:id/update_manual_seconds(.:format)                                           admin/projects#update_manual_seconds
 #                            update_roles_admin_user PATCH  /admin/users/:id/update_roles(.:format)                                                       admin/users#update_roles
 #                       update_streak_day_admin_user PATCH  /admin/users/:id/update_streak_day(.:format)                                                  admin/users#update_streak_day
+#                     restore_streak_goal_admin_user PATCH  /admin/users/:id/restore_streak_goal(.:format)                                                admin/users#restore_streak_goal
+#                              update_ban_admin_user PATCH  /admin/users/:id/update_ban(.:format)                                                         admin/users#update_ban
 #                              admin_activity_checks POST   /admin/activity_checks(.:format)                                                              admin/activity_checks#create
 #                           new_admin_activity_check GET    /admin/activity_checks/new(.:format)                                                          admin/activity_checks#new
 #                                   admin_shop_items GET    /admin/shop_items(.:format)                                                                   admin/shop_items#index
@@ -88,6 +100,7 @@
 #            ledger_admin_project_grants_adjustments GET    /admin/project_grants/adjustments/ledger(.:format)                                            admin/project_grants/adjustments#ledger
 #                   admin_project_grants_adjustments POST   /admin/project_grants/adjustments(.:format)                                                   admin/project_grants/adjustments#create
 #                new_admin_project_grants_adjustment GET    /admin/project_grants/adjustments/new(.:format)                                               admin/project_grants/adjustments#new
+#                              admin_unified_inspect GET    /admin/unified_inspect/:ship_id/:token(.:format)                                              admin/unified_inspect#show {token: /[a-f0-9]{64}/}
 #                                 rails_health_check GET    /up(.:format)                                                                                 rails/health#show
 #                                               root GET    /                                                                                             landing#index
 #                                             signin GET    /auth/hca/start(.:format)                                                                     auth#new
@@ -95,6 +108,9 @@
 #                                            signout DELETE /auth/signout(.:format)                                                                       auth#destroy
 #                                        lapse_start GET    /auth/lapse/start(.:format)                                                                   lapse_auth#start
 #                                     lapse_callback GET    /auth/lapse/callback(.:format)                                                                lapse_auth#callback
+#                                        slack_start GET    /auth/slack/start(.:format)                                                                   slack_auth#start
+#                                     slack_callback GET    /auth/slack/callback(.:format)                                                                slack_auth#callback
+#                                       slack_events POST   /slack/events(.:format)                                                                       slack/events#create
 #                                          hcb_start GET    /auth/hcb/start(.:format)                                                                     hcb_auth#start
 #                                       hcb_callback GET    /auth/hcb/callback(.:format)                                                                  hcb_auth#callback
 #                                     hcb_disconnect DELETE /auth/hcb(.:format)                                                                           hcb_auth#destroy
@@ -104,10 +120,19 @@
 #                                         onboarding GET    /onboarding(.:format)                                                                         onboarding#show
 #                                                    POST   /onboarding(.:format)                                                                         onboarding#update
 #                                               path GET    /path(.:format)                                                                               path#index
+#                                     bulletin_board GET    /bulletin_board(.:format)                                                                     bulletin_board#index
+#                              bulletin_board_search GET    /bulletin_board/search(.:format)                                                              bulletin_board#search
+#                               bulletin_board_event GET    /bulletin_board/events/:id(.:format)                                                          bulletin_board#event
+#                            set_slack_photo_profile POST   /profile/set_slack_photo(.:format)                                                            profiles#set_slack_photo
+#                              custom_avatar_profile DELETE /profile/custom_avatar(.:format)                                                              profiles#custom_avatar
+#                                            profile GET    /profile(.:format)                                                                            profiles#show
+#                                                    PATCH  /profile(.:format)                                                                            profiles#update
+#                                                    PUT    /profile(.:format)                                                                            profiles#update
 #                                        streak_goal GET    /streak_goal(.:format)                                                                        streak_goals#show
 #                                                    DELETE /streak_goal(.:format)                                                                        streak_goals#destroy
 #                                                    POST   /streak_goal(.:format)                                                                        streak_goals#create
 #                          mark_seen_dialog_campaign POST   /dialog_campaigns/:key/mark_seen(.:format)                                                    dialog_campaigns#mark_seen
+#                                        summit_rsvp PATCH  /profile/summit_rsvp(.:format)                                                                profiles#summit_rsvp
 #                                            critter GET    /spin/:id(.:format)                                                                           critters#show
 #                                                    PATCH  /spin/:id(.:format)                                                                           critters#update
 #                                                    PUT    /spin/:id(.:format)                                                                           critters#update
@@ -117,6 +142,7 @@
 #                                              mails GET    /mails(.:format)                                                                              mails#index
 #                                               mail GET    /mails/:id(.:format)                                                                          mails#show
 #                                onboarding_projects GET    /projects/onboarding(.:format)                                                                projects#onboarding
+#                             export_journal_project GET    /projects/:id/export_journal(.:format)                                                        projects#export_journal
 #                            project_journal_entries POST   /projects/:project_id/journal_entries(.:format)                                               journal_entries#create
 #                          new_project_journal_entry GET    /projects/:project_id/journal_entries/new(.:format)                                           journal_entries#new
 #                      project_collaboration_invites POST   /projects/:project_id/collaboration_invites(.:format)                                         projects/collaboration_invites#create
@@ -168,6 +194,9 @@
 #                                     api_v1_project GET    /api/v1/projects/:id(.:format)                                                                api/v1/projects#show
 #                                       api_v1_users GET    /api/v1/users(.:format)                                                                       api/v1/users#index
 #                                        api_v1_user GET    /api/v1/users/:id(.:format)                                                                   api/v1/users#show
+#                            api_v1_explore_projects GET    /api/v1/explore/projects(.:format)                                                            api/v1/explore#projects
+#                            api_v1_explore_journals GET    /api/v1/explore/journals(.:format)                                                            api/v1/explore#journals
+#                                  rails_performance        /admin/performance                                                                            RailsPerformance::Engine
 #                   turbo_recede_historical_location GET    /recede_historical_location(.:format)                                                         turbo/native/navigation#recede
 #                   turbo_resume_historical_location GET    /resume_historical_location(.:format)                                                         turbo/native/navigation#resume
 #                  turbo_refresh_historical_location GET    /refresh_historical_location(.:format)                                                        turbo/native/navigation#refresh
@@ -219,6 +248,23 @@
 #                         job GET    /jobs/:id(.:format)                                            mission_control/jobs/jobs#show
 #                        jobs GET    /:status/jobs(.:format)                                        mission_control/jobs/jobs#index
 #                        root GET    /                                                              mission_control/jobs/queues#index
+#
+# Routes for RailsPerformance::Engine:
+#                        Prefix Verb URI Pattern             Controller#Action
+#                  engine_asset GET  /assets/*file(.:format) Inline handler (Proc/Lambda)
+#             rails_performance GET  /                       rails_performance/rails_performance#index
+#    rails_performance_requests GET  /requests(.:format)     rails_performance/rails_performance#requests
+#     rails_performance_crashes GET  /crashes(.:format)      rails_performance/rails_performance#crashes
+#      rails_performance_recent GET  /recent(.:format)       rails_performance/rails_performance#recent
+#        rails_performance_slow GET  /slow(.:format)         rails_performance/rails_performance#slow
+#       rails_performance_trace GET  /trace/:id(.:format)    rails_performance/rails_performance#trace
+#     rails_performance_summary GET  /summary(.:format)      rails_performance/rails_performance#summary
+#     rails_performance_sidekiq GET  /sidekiq(.:format)      rails_performance/rails_performance#sidekiq
+# rails_performance_delayed_job GET  /delayed_job(.:format)  rails_performance/rails_performance#delayed_job
+#       rails_performance_grape GET  /grape(.:format)        rails_performance/rails_performance#grape
+#        rails_performance_rake GET  /rake(.:format)         rails_performance/rails_performance#rake
+#      rails_performance_custom GET  /custom(.:format)       rails_performance/rails_performance#custom
+#   rails_performance_resources GET  /resources(.:format)    rails_performance/rails_performance#resources
 
 Rails.application.routes.draw do
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server

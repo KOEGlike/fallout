@@ -17,7 +17,12 @@ const Frame = ({
 
   return (
     <div className={twMerge(`relative ${pad} flex flex-col`, className)}>
-      <div className={twMerge('bg-light-brown flex-1 w-full min-h-0 min-w-0 p-4 md:p-3 flex flex-col overflow-hidden', innerClassName)}>
+      <div
+        className={twMerge(
+          'bg-light-brown flex-1 w-full min-h-0 min-w-0 p-4 md:p-3 flex flex-col overflow-hidden',
+          innerClassName,
+        )}
+      >
         {children}
       </div>
       <img

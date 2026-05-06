@@ -170,78 +170,78 @@ export default function AdminDashboardIndex() {
           all_time={toTimeRows(stats.all_time)}
         />
         <div className="flex flex-col gap-4 min-w-0">
-        <Card className="max-w-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Unreviewed Ships</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={backlogChartConfig} className="h-[250px] w-full">
-              <AreaChart data={backlog_chart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <defs>
-                  <linearGradient id="backlogFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-backlog)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="var(--color-backlog)" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(v: string) => {
-                    const d = new Date(v + 'T00:00:00')
-                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                  }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(v: string) => {
-                        const d = new Date(v + 'T00:00:00')
-                        return d.toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })
-                      }}
-                    />
-                  }
-                />
-                <Area
-                  type="monotone"
-                  dataKey="backlog"
-                  stroke="var(--color-backlog)"
-                  strokeWidth={2}
-                  fill="url(#backlogFill)"
-                />
-              </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-        <Card className="max-w-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Requirements Checks (Last 24h)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{recent_activity.count}</p>
-            <p className="text-sm text-muted-foreground mt-1">ships reviewed</p>
-          </CardContent>
-        </Card>
-        <Card className="max-w-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Requirements Check Turnaround (24h)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold tabular-nums">
-              {recent_activity.avg_turnaround_seconds != null
-                ? formatDuration(recent_activity.avg_turnaround_seconds)
-                : '—'}
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="max-w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Unreviewed Ships</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={backlogChartConfig} className="h-[250px] w-full">
+                <AreaChart data={backlog_chart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="backlogFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-backlog)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="var(--color-backlog)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(v: string) => {
+                      const d = new Date(v + 'T00:00:00')
+                      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(v: string) => {
+                          const d = new Date(v + 'T00:00:00')
+                          return d.toLocaleDateString('en-US', {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        }}
+                      />
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="backlog"
+                    stroke="var(--color-backlog)"
+                    strokeWidth={2}
+                    fill="url(#backlogFill)"
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+          <Card className="max-w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Requirements Checks (Last 24h)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold tabular-nums">{recent_activity.count}</p>
+              <p className="text-sm text-muted-foreground mt-1">ships reviewed</p>
+            </CardContent>
+          </Card>
+          <Card className="max-w-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Requirements Check Turnaround (24h)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold tabular-nums">
+                {recent_activity.avg_turnaround_seconds != null
+                  ? formatDuration(recent_activity.avg_turnaround_seconds)
+                  : '—'}
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

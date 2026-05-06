@@ -112,7 +112,7 @@ export default function Header({ koiBalance, goldBalance, avatar, displayName }:
             Koi Balance
           </span>
         </div>
-         <div className="flex flex-row-reverse xs:flex-row items-center space-x-2 group relative">
+        <div className="flex flex-row-reverse xs:flex-row items-center space-x-2 group relative">
           <img src="/gold.webp" alt="gold" className="h-8 xs:h-10" />
           <span className="text-yellow-600 text-3xl xs:text-4xl xl:text-5xl font-bold">{goldBalance}</span>
           <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-dark-brown px-2 py-1 text-xs text-light-brown opacity-0 transition-opacity group-hover:opacity-100">

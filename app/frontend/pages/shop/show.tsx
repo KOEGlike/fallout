@@ -8,13 +8,7 @@ type ShopItem = {
   description: string | null
 }
 
-export default function ShopShow({
-  shop_item,
-  is_modal,
-}: {
-  shop_item: ShopItem
-  is_modal?: boolean
-}) {
+export default function ShopShow({ shop_item, is_modal }: { shop_item: ShopItem; is_modal?: boolean }) {
   const modalRef = useRef<{ close: () => void }>(null)
 
   const content = (

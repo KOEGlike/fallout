@@ -85,10 +85,10 @@ class Admin::DashboardController < Admin::ApplicationController
 
           multiplier = recordable.is_a?(YouTubeVideo) ? (ann["stretch_multiplier"]&.to_f || 1.0) : 60.0
           raw = case recordable
-                when LookoutTimelapse, LapseTimelapse then recordable.duration.to_i
-                when YouTubeVideo then recordable.duration_seconds.to_i
-                else 0
-                end
+          when LookoutTimelapse, LapseTimelapse then recordable.duration.to_i
+          when YouTubeVideo then recordable.duration_seconds.to_i
+          else 0
+          end
           base = recordable.is_a?(YouTubeVideo) ? raw * multiplier : raw
 
           approved = base

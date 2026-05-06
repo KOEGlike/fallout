@@ -24,7 +24,7 @@ class ReprocessJournalImageJob < ApplicationJob
     # If we've already reprocessed (checksum prefix marker), bail.
     return if blob.metadata["reprocessed"] == true
 
-    source = Tempfile.new(["journal_image", ".bin"], binmode: true)
+    source = Tempfile.new([ "journal_image", ".bin" ], binmode: true)
     source.write(raw)
     source.close # flush Ruby's IO buffer to disk before libvips opens the path
 
