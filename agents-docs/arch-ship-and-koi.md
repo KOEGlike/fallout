@@ -258,7 +258,7 @@ Internal approved time is **derived on read** via `Ship#approved_internal_second
 | Consumer | Reads | Notes |
 |---|---|---|
 | User-visible dashboards (path header, project pages) | User-facing approved (or logged time, if not yet approved) | Never internal — users must not see the adjustment |
-| Airtable export (`Project.airtable_sync_preload`) | User-facing approved (`SUM(ships.approved_public_seconds)` over `Ship.approved` as "Hours Approved") | External record — must match what the user sees. Scoped to fully-approved ships only so in-flight TA-approved ships don't inflate project totals. |
+| Airtable export (`Project.airtable_sync_preload`) | Logged hours only — "Hours Approved" used to be exported here but was removed; consumers should join from the `Ship.airtable_sync_field_mappings` "Approved Hours" column instead. | Per-project approved totals are no longer denormalized into the Project Airtable row. |
 | YSWS Unified Submissions Airtable upload (`Ship#upload_to_unified_airtable!`) | **Internal approved time** (`internal_hours_for_unified` → `approved_internal_seconds / 3600`) | Pushed to "Optional - Override Hours Spent". This is the operator's view (TA + DR/BR adjustments) — what downstream YSWS automation uses as the official hours. |
 | **Koi awarding** (`ShipKoiAwarder.compute_amount`) | **User-facing approved** | See §10 — explicitly NOT internal. The user's reward must be derivable from what they see. |
 | Admin hours display (`HoursDisplay` component) | Internal as the headline; user-facing in parens labeled "User facing" | Reviewers see both side-by-side |

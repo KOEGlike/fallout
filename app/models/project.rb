@@ -130,14 +130,7 @@ class Project < ApplicationRecord
 
     hours_logged = batch_time_logged(project_ids).transform_values { |s| s.to_f / 3600.0 }
 
-    hours_approved = Ship.approved.where(project_id: project_ids)
-      .group(:project_id).sum(:approved_public_seconds)
-      .transform_values { |s| s.to_f / 3600.0 }
-
-    {
-      hours_logged: hours_logged,
-      hours_approved: hours_approved
-    }
+    { hours_logged: hours_logged }
   end
 
   def self.airtable_sync_field_mappings
@@ -148,8 +141,7 @@ class Project < ApplicationRecord
       "Repo Link" => :repo_link,
       "Created At" => ->(p) { p.created_at&.iso8601 },
       "Author" => ->(p) { p.user&.id },
-      "Hours Logged" => ->(p, pre) { (pre[:hours_logged][p.id] || 0).round(2) },
-      "Hours Approved" => ->(p, pre) { (pre[:hours_approved][p.id] || 0).round(2) }
+      "Hours Logged" => ->(p, pre) { (pre[:hours_logged][p.id] || 0).round(2) }
     }
   end
 
