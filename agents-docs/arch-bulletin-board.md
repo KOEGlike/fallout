@@ -23,6 +23,8 @@ GET /bulletin_board/events/:id         # bulletin_board#event — public event d
 
 All three are `allow_unauthenticated_access`, `allow_trial_access`, `skip_onboarding_redirect`. Pundit verification is skipped because the controller renders explicit public scopes (`BulletinEvent.where.not(starts_at: nil)` for events, `*.public_for_explore` for explore content). **Drafts are filtered out** of every public response by the `where.not(starts_at: nil)` predicate.
 
+`/bulletin_board?project=:id` also sets OG/Twitter meta tags for the selected public project so Slack unfurls can render a project card for bulletin-board links.
+
 Admin management lives at `/admin/bulletin_events` (staff-readable, admin-only writes).
 
 ---

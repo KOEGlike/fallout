@@ -3,6 +3,7 @@ class ProjectsController < ApplicationController
   allow_trial_access only: %i[index show new create edit update destroy onboarding export_journal] # Trial users can manage their single project and export their journal
   skip_onboarding_redirect only: %i[show] # Public project details must stay viewable before account onboarding.
   before_action :set_project, only: %i[show edit update destroy export_journal]
+  before_action :set_project_unfurl_meta, only: :show
 
   def onboarding
     authorize :project, :onboarding? # Policy gate for project onboarding access
@@ -42,7 +43,7 @@ class ProjectsController < ApplicationController
 
     # Direct browser visits get the bulletin board with the project opened as a modal.
     # Inertia navigations and modal requests render the page normally.
-    unless request.headers["X-Inertia"].present? || request.headers["X-InertiaUI-Modal"].present?
+    unless request.headers["X-Inertia"].present? || request.headers["X-InertiaUI-Modal"].present? || slack_unfurl_request?
       return redirect_to bulletin_board_path(project: @project.id), allow_other_host: false
     end
 
@@ -375,5 +376,27 @@ class ProjectsController < ApplicationController
       next false unless unshipped_ids.include?(project.id)
       JournalEntryPolicy.new(current_user, project.journal_entries.build(user: current_user)).create?
     }.map { |project| { id: project.id, name: project.name } }
+  end
+
+  def set_project_unfurl_meta
+    return unless action_name == "show"
+    return if request.headers["X-Inertia"].present? || request.headers["X-InertiaUI-Modal"].present?
+
+    cover_entry = JournalEntry.public_for_explore
+      .where(project_id: @project.id)
+      .joins(:images_attachments)
+      .order(created_at: :desc)
+      .first
+
+    @unfurl_meta = {
+      title: @project.name,
+      description: @project.description.to_s.truncate(200).presence || "View this Fallout project.",
+      image: cover_entry&.images&.first&.then { |img| url_for(img) },
+      url: project_url(@project)
+    }
+  end
+
+  def slack_unfurl_request?
+    request.user_agent.to_s.include?("Slackbot")
   end
 end

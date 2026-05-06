@@ -187,3 +187,9 @@ Creates and manages recording sessions:
   - entry metadata (id, author, timestamp)
   - raw journal content
   - recording links for Lapse/Lookout playback URLs and YouTube watch URLs
+
+## Project Link Unfurl
+
+- Direct project links (`/projects/:id`) now emit OG/Twitter meta tags for link unfurl cards.
+- For normal browser visits, `/projects/:id` still redirects to `/bulletin_board?project=:id` to open as modal.
+- Slackbot user-agent requests are excluded from that redirect so crawlers can read project metadata.

@@ -27,6 +27,7 @@ class BulletinBoardController < ApplicationController
   # Explore uses explicit public_for_explore scopes for projects and journals, so public visibility
   # is enforced without exposing owner/collaborator-only policy scopes through this public page.
   skip_after_action :verify_policy_scoped, only: %i[index search event]
+  before_action :set_project_unfurl_meta, only: :index
 
   def index
     render inertia: "bulletin_board/index", props: {
@@ -466,5 +467,25 @@ class BulletinBoardController < ApplicationController
     doc = markdown_doc.dup
     doc.css("img, .external-image-callout").remove
     doc.text.squish.truncate(length)
+  end
+
+  def set_project_unfurl_meta
+    return if params[:project].blank?
+
+    project = Project.public_for_explore.includes(:user).find_by(id: params[:project])
+    return unless project
+
+    cover_entry = JournalEntry.public_for_explore
+      .where(project_id: project.id)
+      .joins(:images_attachments)
+      .order(created_at: :desc)
+      .first
+
+    @unfurl_meta = {
+      title: project.name,
+      description: project.description.to_s.truncate(200).presence || "View this Fallout project.",
+      image: cover_entry&.images&.first&.then { |img| url_for(img) },
+      url: bulletin_board_url(project: project.id)
+    }
   end
 end
