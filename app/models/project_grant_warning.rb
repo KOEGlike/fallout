@@ -159,10 +159,12 @@ class ProjectGrantWarning < ApplicationRecord
   end
 
   def self.scan_ledger_divergence!
-    HcbGrantCard.issued.find_each do |card|
-      ledger_net = card.project_funding_topups.kept.where(status: "completed").sum(
-        Arel.sql("CASE direction WHEN 'out' THEN -amount_cents ELSE amount_cents END")
-      )
+    ledger_net_by_card_id = ProjectFundingTopup.kept.where(status: "completed")
+                                               .group(:hcb_grant_card_id)
+                                               .sum(Arel.sql("CASE direction WHEN 'out' THEN -amount_cents ELSE amount_cents END"))
+
+    HcbGrantCard.issued.includes(:user).find_each do |card|
+      ledger_net = ledger_net_by_card_id[card.id] || 0
       next if card.amount_cents == ledger_net
 
       gap = card.amount_cents - ledger_net
@@ -214,9 +216,12 @@ class ProjectGrantWarning < ApplicationRecord
     # flag transferred > fulfilled-orders as an anomaly. The only user-level
     # check that remains is negative-ledger, which means more out-adjustments
     # than in-topups — always a data-entry mistake.
+    transferred_by_user_id = ProjectFundingTopup.kept.where(status: "completed")
+                                                .group(:user_id)
+                                                .sum(Arel.sql("CASE direction WHEN 'out' THEN -amount_cents ELSE amount_cents END"))
     user_ids = ProjectFundingTopup.kept.distinct.pluck(:user_id)
     User.where(id: user_ids).find_each do |user|
-      transferred = ProjectFundingTopupService.transferred_usd_cents(user)
+      transferred = transferred_by_user_id[user.id] || 0
       next unless transferred.negative?
 
       record!(

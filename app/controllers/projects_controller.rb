@@ -19,7 +19,7 @@ class ProjectsController < ApplicationController
       collaborated_ids = Collaborator.kept.where(user: current_user, collaboratable_type: "Project").select(:collaboratable_id)
       scope = scope.or(Project.kept.where(id: collaborated_ids))
     end
-    scope = scope.includes(kept_journal_entries: :images_attachments)
+    scope = scope.includes(kept_journal_entries: { images_attachments: :blob })
     scope = scope.search(params[:query]) if params[:query].present?
     @pagy, @projects = pagy(scope.order(created_at: :desc))
     @recordings_counts = Recording.joins(:journal_entry)
@@ -56,9 +56,18 @@ class ProjectsController < ApplicationController
     project_policy = policy(@project)
     highlighted_journal_entry_id = highlighted_journal_entry_id(journal_entries)
 
+    # Batch the per-entry markdown cache lookups into one fetch_multi so we
+    # don't issue a cache GET per journal entry (was an N+1 against the cache backend).
+    base_url = MarkdownHelper.canonical_base_url || (request.base_url rescue nil)
+    entry_by_cache_key = journal_entries.index_by { |je| [ "journal_entry_html_v1", je.cache_key_with_version, base_url ] }
+    html_by_cache_key = Rails.cache.fetch_multi(*entry_by_cache_key.keys) do |key|
+      helpers.render_user_markdown(entry_by_cache_key[key].content.to_s)
+    end
+    content_html_by_id = entry_by_cache_key.each_with_object({}) { |(key, entry), h| h[entry.id] = html_by_cache_key[key] }
+
     render inertia: {
       project: serialize_project_detail(@project, journal_entries.size),
-      journal_entries: journal_entries.map { |je| serialize_journal_entry_card(je) },
+      journal_entries: journal_entries.map { |je| serialize_journal_entry_card(je, content_html_by_id[je.id]) },
       switchable_projects_for_journal: switchable_projects_for_journal,
       collaborators: @project.collaborators.includes(:user).map { |c| serialize_project_collaborator(c) },
       ships: @project.ships.includes(time_audit_review: :reviewer, requirements_check_review: :reviewer, design_review: :reviewer, build_review: :reviewer).order(created_at: :desc).map { |s|
@@ -238,17 +247,10 @@ class ProjectsController < ApplicationController
     }
   end
 
-  def serialize_journal_entry_card(journal_entry)
+  def serialize_journal_entry_card(journal_entry, content_html)
     content = journal_entry.content.to_s
     is_blueprint_transfer = content.start_with?("Project transferred from Blueprint!")
     hours_match = content.match(/Duration Transferred: ([\d.]+)h/)
-    # Cache the markdown render — pure function of (content, base_url). Invalidated by updated_at via
-    # cache_key_with_version; base_url is in the key so links don't get the wrong same-origin treatment if
-    # APPLICATION_HOST is unset and request.base_url varies.
-    base_url = MarkdownHelper.canonical_base_url || (request.base_url rescue nil)
-    content_html = Rails.cache.fetch([ "journal_entry_html_v1", journal_entry.cache_key_with_version, base_url ]) do
-      helpers.render_user_markdown(content)
-    end
     {
       id: journal_entry.id,
       content_html: content_html,
