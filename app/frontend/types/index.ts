@@ -331,7 +331,7 @@ export interface ShipForm {
   status: string
   feedback: string
   justification: string
-  approved_seconds: number | null
+  approved_public_seconds: number | null
   project_name: string
   user_display_name: string
 }
@@ -381,7 +381,7 @@ export interface TimeAuditReviewDetail {
   ship_id: number
   status: string
   feedback: string | null
-  approved_seconds: number | null
+  approved_public_seconds: number | null
   annotations: TimeAuditAnnotations | null
   reviewer_display_name: string | null
   created_at: string
@@ -534,7 +534,7 @@ export interface UnifiedInspectJournalEntry {
 
 export interface UnifiedInspectTimeAudit {
   original_seconds: number
-  approved_seconds: number
+  approved_public_seconds: number
   reviewer: string | null
   feedback: string | null
   entries: UnifiedInspectJournalEntry[]

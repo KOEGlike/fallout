@@ -6,7 +6,7 @@ class Admin::DashboardController < Admin::ApplicationController
     week_ago = 7.days.ago
     terminal = %w[approved returned rejected]
 
-    completed_ta = TimeAuditReview.where(status: :approved).where.not(approved_seconds: nil)
+    completed_ta = TimeAuditReview.where(status: :approved).where.not(approved_public_seconds: nil)
     completed_ta_week = completed_ta.where("time_audit_reviews.updated_at >= ?", week_ago)
 
     render inertia: "admin/dashboard/index", props: {

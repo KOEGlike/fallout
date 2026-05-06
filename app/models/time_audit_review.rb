@@ -2,18 +2,18 @@
 #
 # Table name: time_audit_reviews
 #
-#  id               :bigint           not null, primary key
-#  annotations      :jsonb
-#  approved_seconds :integer
-#  claim_expires_at :datetime
-#  completed_at     :datetime
-#  feedback         :text
-#  lock_version     :integer          default(0), not null
-#  status           :integer          default("pending"), not null
-#  created_at       :datetime         not null
-#  updated_at       :datetime         not null
-#  reviewer_id      :bigint
-#  ship_id          :bigint           not null
+#  id                      :bigint           not null, primary key
+#  annotations             :jsonb
+#  approved_public_seconds :integer
+#  claim_expires_at        :datetime
+#  completed_at            :datetime
+#  feedback                :text
+#  lock_version            :integer          default(0), not null
+#  status                  :integer          default("pending"), not null
+#  created_at              :datetime         not null
+#  updated_at              :datetime         not null
+#  reviewer_id             :bigint
+#  ship_id                 :bigint           not null
 #
 # Indexes
 #
@@ -42,7 +42,7 @@ class TimeAuditReview < ApplicationRecord
 
   def self.extra_review_field_mappings
     {
-      "Approved Hours" => ->(r) { (r.approved_seconds.to_f / 3600.0).round(2) }
+      "Approved Hours" => ->(r) { (r.approved_public_seconds.to_f / 3600.0).round(2) }
     }
   end
 

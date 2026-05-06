@@ -2,22 +2,22 @@
 #
 # Table name: ships
 #
-#  id                :bigint           not null, primary key
-#  approved_seconds  :integer
-#  feedback          :text
-#  frozen_demo_link  :string
-#  frozen_hca_data   :text
-#  frozen_repo_link  :string
-#  frozen_screenshot :string
-#  justification     :string
-#  preflight_results :jsonb
-#  ship_type         :integer          default("design"), not null
-#  status            :integer          default("pending"), not null
-#  created_at        :datetime         not null
-#  updated_at        :datetime         not null
-#  preflight_run_id  :bigint
-#  project_id        :bigint           not null
-#  reviewer_id       :bigint
+#  id                      :bigint           not null, primary key
+#  approved_public_seconds :integer
+#  feedback                :text
+#  frozen_demo_link        :string
+#  frozen_hca_data         :text
+#  frozen_repo_link        :string
+#  frozen_screenshot       :string
+#  justification           :string
+#  preflight_results       :jsonb
+#  ship_type               :integer          default("design"), not null
+#  status                  :integer          default("pending"), not null
+#  created_at              :datetime         not null
+#  updated_at              :datetime         not null
+#  preflight_run_id        :bigint
+#  project_id              :bigint           not null
+#  reviewer_id             :bigint
 #
 # Indexes
 #

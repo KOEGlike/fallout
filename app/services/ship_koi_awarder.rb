@@ -39,23 +39,23 @@ class ShipKoiAwarder
 
   # Public so the rake task / dry-run preview can show the would-be amount without inserting.
   #
-  # Invariant: ship.approved_seconds is per-cycle by construction. It mirrors
-  # time_audit_review.approved_seconds, which both the TA frontend
+  # Invariant: ship.approved_public_seconds is per-cycle by construction. It mirrors
+  # time_audit_review.approved_public_seconds, which both the TA frontend
   # (pages/admin/reviews/time_audits/show.tsx) and the auto-approval path
-  # (Ship#compute_approved_seconds via #carry_forward_ta_annotations!) compute
+  # (Ship#compute_approved_public_seconds via #carry_forward_ta_annotations!) compute
   # from ship.new_journal_entries — entries created strictly after
   # previous_approved_ship.created_at. So summing per-ship gives the correct
   # lifetime total without subtracting prior cycles. DO NOT swap to ship.total_hours
   # or any project-wide aggregator — those count the full history.
   def self.compute_amount(ship)
-    seconds = ship.approved_seconds.to_i # Public/user-facing hours only — internal hours_adjustment is excluded by design
+    seconds = ship.approved_public_seconds.to_i # Public/user-facing hours only — internal hours_adjustment is excluded by design
     hours_koi = Rational(seconds * RATE_KOI_PER_HOUR, 3600).round
     adjustment = ship.design_review&.koi_adjustment.to_i + ship.build_review&.koi_adjustment.to_i
     hours_koi + adjustment
   end
 
   def self.build_description(ship, total)
-    seconds = ship.approved_seconds.to_i
+    seconds = ship.approved_public_seconds.to_i
     hours = (seconds / 3600.0).round(2)
     base_koi = Rational(seconds * RATE_KOI_PER_HOUR, 3600).round
     description = "Ship ##{ship.id} approved — #{hours} hrs × #{RATE_KOI_PER_HOUR} koi"

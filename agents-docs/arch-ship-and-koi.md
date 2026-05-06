@@ -62,7 +62,7 @@ ship = @project.ships.build(
 | `status` | enum: `pending`, `approved`, `returned`, `rejected`, `awaiting_identity` |
 | `ship_type` | enum (prefix `ship_type_`): `design` (default 0), `build` (1) — chooses Phase 2 reviewer |
 | `frozen_demo_link`, `frozen_repo_link`, `frozen_screenshot`, `frozen_hca_data` | snapshot at submission. `frozen_hca_data` is `serialize :json` + `encrypts` |
-| `approved_seconds` | denormalized from `time_audit_review.approved_seconds` (kept in sync via `sync_approved_seconds_from_ta!`) |
+| `approved_public_seconds` | denormalized from `time_audit_review.approved_public_seconds` (kept in sync via `sync_approved_public_seconds_from_ta!`). Set when TA approves; does NOT mean the ship has been fully approved. |
 | `feedback`, `justification` | `feedback` aggregated from sibling returned-review feedback when status flips to `returned` |
 | `preflight_results`, `preflight_run_id` | snapshot of preflight checks at submit time + reference to the run |
 
@@ -94,7 +94,7 @@ When ship status flips to `returned`, `aggregate_return_feedback` joins all retu
 
 `carry_forward_ta_annotations!` runs during `create_initial_reviews!`. Source: any prior TA that was **approved, returned, OR cancelled** and has recording annotations (any non-pending state where a reviewer has made annotation progress).
 - Filter prior annotations down to recordings still present in this cycle.
-- If **all** current recordings already have annotations AND the prior TA was specifically `approved` → auto-approve TA with recomputed `approved_seconds` (no human review needed). Returned/cancelled prior TAs only seed annotations; they never auto-approve.
+- If **all** current recordings already have annotations AND the prior TA was specifically `approved` → auto-approve TA with recomputed `approved_public_seconds` (no human review needed). Returned/cancelled prior TAs only seed annotations; they never auto-approve.
 - Else if any current recordings already had annotations → seed the new TA with them (human only reviews the new ones / the delta).
 
 This is the "I fixed one thing and re-shipped" optimization — reviewers don't redo work on already-judged recordings, and the optimization extends to re-ships after a returned/cancelled cycle.
@@ -122,7 +122,7 @@ Re-ships after a prior approval start a fresh cycle — counters reset, and the 
 ## 3. Multi-stage Review Pipeline
 
 ### Phase 1 (Parallel)
-- `TimeAuditReview` (TA) — assigned to `time_auditor` role. Sets `approved_seconds` + `annotations: { recordings: { "<id>": { description, segments: [{type: "removed"|"deflated", start_seconds, end_seconds, deflated_percent}], stretch_multiplier } } }`.
+- `TimeAuditReview` (TA) — assigned to `time_auditor` role. Sets `approved_public_seconds` + `annotations: { recordings: { "<id>": { description, segments: [{type: "removed"|"deflated", start_seconds, end_seconds, deflated_percent}], stretch_multiplier } } }`.
 - `RequirementsCheckReview` (RC) — assigned to `requirements_checker` OR `pass2_reviewer`. Has `repo_tree` jsonb (populated by `FetchRepoTreeJob` after_create_commit). Has `gerber_zip_files` action that pulls a zip from GitHub and renders top/bottom PCB SVGs via Node `pcb-stackup` (output is sanitized via `Rails::Html::SafeListSanitizer` — Gerber zips are user-supplied untrusted input).
 
 ### Phase 2 (Single, type-conditional)
@@ -220,9 +220,9 @@ The "submission held until verified" mechanism:
 
 ## 6. Time-Audit Calculations
 
-The TA is responsible for converting raw recording duration into `approved_seconds`.
+The TA is responsible for converting raw recording duration into `approved_public_seconds`.
 
-`Ship#compute_approved_seconds(annotations)`:
+`Ship#compute_approved_public_seconds(annotations)`:
 - For each new journal entry's recordings:
   - **Lapse / Lookout**: `duration` is already real-time seconds.
   - **YouTube**: `duration_seconds * stretch_multiplier` (default 1, but a reviewer can set e.g. 60 to treat a YT video as a 1:60 timelapse). Stretch is per-recording in TA annotations and is persisted onto the `YouTubeVideo` row via `sync_youtube_stretch_multipliers!` so that aggregation queries reflect it.
@@ -231,9 +231,9 @@ The TA is responsible for converting raw recording duration into `approved_secon
 
 `Ship#total_hours` (used in admin context) re-computes from kept journal entries via raw SQL summing the per-recordable duration columns, divides by 3600.
 
-`Ship#sync_approved_seconds_from_ta!` mirrors `time_audit_review.approved_seconds` onto `ship.approved_seconds` whenever the TA approves — used as the public hours number.
+`Ship#sync_approved_public_seconds_from_ta!` mirrors `time_audit_review.approved_public_seconds` onto `ship.approved_public_seconds` whenever the TA approves — used as the public hours number. Note: this column is populated as soon as the TA approves, before the rest of the review pipeline (RC + DR/BR) finishes — so a value > 0 does NOT mean the ship is fully approved.
 
-`compute_internal_hours(ship)` (admin-only display) = `approved_seconds + design_review.hours_adjustment + build_review.hours_adjustment` / 3600. Returns nil if all zero.
+`Ship#approved_internal_seconds` (admin-only display) = `approved_public_seconds + design_review.hours_adjustment + build_review.hours_adjustment`. Returns an integer (always); display callers convert to hours and render `nil` when zero.
 
 See [§7 Hours: User-Facing vs Internal](#7-hours-user-facing-vs-internal) for the full taxonomy of the three hour concepts and what each one drives.
 
@@ -248,17 +248,18 @@ The system tracks three distinct hour concepts. They have different audiences, d
 | Concept | What it represents | Where stored / computed | Who controls it |
 |---|---|---|---|
 | **Logged time** | What the user *claims* — the raw input from recordings | `Project#time_logged`, `Ship#total_hours` (re-aggregated SQL over recordings) | The user (by uploading timelapses / videos) |
-| **User-facing approved time** | The TA-blessed subset of logged time | `ship.approved_seconds` (mirrored from `time_audit_review.approved_seconds` via `sync_approved_seconds_from_ta!`) | The TA reviewer |
-| **Internal approved time** | User-facing + Phase 2 adjustments — the *operator's* view | `Admin*Controller#compute_internal_hours(ship)` = `approved_seconds + design_review.hours_adjustment + build_review.hours_adjustment` | TA + DR + BR reviewers, combined |
+| **User-facing approved time** | The TA-blessed subset of logged time | `ship.approved_public_seconds` (mirrored from `time_audit_review.approved_public_seconds` via `sync_approved_public_seconds_from_ta!`) | The TA reviewer |
+| **Internal approved time** | User-facing + Phase 2 adjustments — the *operator's* view | `Ship#approved_internal_seconds` = `approved_public_seconds + design_review.hours_adjustment + build_review.hours_adjustment` | TA + DR + BR reviewers, combined |
 
-Internal approved time is **derived on read** — there's no `internal_seconds` column. Each consumer recomputes it. The `compute_internal_hours` helper is duplicated across `app/controllers/admin/ships_controller.rb`, `app/controllers/admin/projects_controller.rb`, and `app/controllers/admin/reviews/base_controller.rb` (worth consolidating, but not blocking).
+Internal approved time is **derived on read** via `Ship#approved_internal_seconds` — there's no column. Display sites (admin controllers) wrap it with a nil-when-zero helper so the UI shows blank instead of "0.0h" before any reviews settle.
 
 ### What each one drives
 
 | Consumer | Reads | Notes |
 |---|---|---|
 | User-visible dashboards (path header, project pages) | User-facing approved (or logged time, if not yet approved) | Never internal — users must not see the adjustment |
-| Airtable export (`Project.airtable_sync_preload`) | User-facing approved (`SUM(ships.approved_seconds)` as "Hours Approved") | External record — must match what the user sees |
+| Airtable export (`Project.airtable_sync_preload`) | User-facing approved (`SUM(ships.approved_public_seconds)` over `Ship.approved` as "Hours Approved") | External record — must match what the user sees. Scoped to fully-approved ships only so in-flight TA-approved ships don't inflate project totals. |
+| YSWS Unified Submissions Airtable upload (`Ship#upload_to_unified_airtable!`) | **Internal approved time** (`internal_hours_for_unified` → `approved_internal_seconds / 3600`) | Pushed to "Optional - Override Hours Spent". This is the operator's view (TA + DR/BR adjustments) — what downstream YSWS automation uses as the official hours. |
 | **Koi awarding** (`ShipKoiAwarder.compute_amount`) | **User-facing approved** | See §10 — explicitly NOT internal. The user's reward must be derivable from what they see. |
 | Admin hours display (`HoursDisplay` component) | Internal as the headline; user-facing in parens labeled "User facing" | Reviewers see both side-by-side |
 | Admin sort/filter on hours columns | Internal | Operator-facing analytics |
@@ -269,7 +270,7 @@ Internal approved time is **derived on read** — there's no `internal_seconds` 
 
 Phase 2 reviewers (DR/BR) sometimes need to credit or debit hours that the TA can't see — e.g., physical build work not captured on camera, or a deduction for low-quality work that nonetheless passed RC. Putting this knob on Phase 2 keeps roles focused:
 
-- **TA** answers: "Do these recordings reflect real work?" → sets `approved_seconds` (the user's contract).
+- **TA** answers: "Do these recordings reflect real work?" → sets `approved_public_seconds` (the user's contract).
 - **Phase 2** (DR/BR) answers: "Given the design/build outcome, what's the *real* hours figure?" → adds `hours_adjustment` for internal/operator use.
 
 Decoupling means Phase 2 can adjust internal totals (driving travel grants) without retroactively changing the user-visible "your approved hours" number — which would feel arbitrary to the user and would invalidate the TA's prior decision.
@@ -383,14 +384,14 @@ When a ship's status transitions to `:approved`, `Ship#award_ship_review_koi!` (
 
 **Formula:**
 ```
-amount = round(approved_seconds * 7 / 3600) + design_review.koi_adjustment + build_review.koi_adjustment
+amount = round(approved_public_seconds * 7 / 3600) + design_review.koi_adjustment + build_review.koi_adjustment
 ```
 
-**Hours basis**: `ship.approved_seconds` — the **public/user-facing** TA value. The internal `hours_adjustment` columns on DR/BR are deliberately NOT counted toward koi (they only affect internal hours reporting). The rate is **7 koi per hour** (`ShipKoiAwarder::RATE_KOI_PER_HOUR`).
+**Hours basis**: `ship.approved_public_seconds` — the **public/user-facing** TA value. The internal `hours_adjustment` columns on DR/BR are deliberately NOT counted toward koi (they only affect internal hours reporting). The rate is **7 koi per hour** (`ShipKoiAwarder::RATE_KOI_PER_HOUR`).
 
 **Adjustments**: `koi_adjustment` columns on DesignReview and BuildReview are signed integers a reviewer can set during Phase 2. Both are summed into the award.
 
-**Re-ship correctness**: `ship.approved_seconds` is set by TA from `compute_approved_seconds(annotations)` over `new_journal_entries` only — entries created strictly after the previous approved ship's `created_at`. So each cycle's ship records exactly the *new* hours. Summing one award per approved ship gives the correct lifetime total without subtracting prior cycles. Example: ship A approved at 10h → 70 koi; ship B (same project) later approved at 15h *new* hours → +105 koi, lifetime 175 koi.
+**Re-ship correctness**: `ship.approved_public_seconds` is set by TA from `compute_approved_public_seconds(annotations)` over `new_journal_entries` only — entries created strictly after the previous approved ship's `created_at`. So each cycle's ship records exactly the *new* hours. Summing one award per approved ship gives the correct lifetime total without subtracting prior cycles. Example: ship A approved at 10h → 70 koi; ship B (same project) later approved at 15h *new* hours → +105 koi, lifetime 175 koi.
 
 **Result tagging**: `ShipKoiAwarder.call` returns a `Result` with `status:` one of `:created`, `:skipped_already_awarded` (DB unique index rejected — race or replay), `:skipped_zero_amount`, `:skipped_trial_user`, `:skipped_not_approved`. Used by the rake task to tally counts.
 
@@ -422,7 +423,7 @@ Any error inside the callback is caught, logged, and reported to `ErrorReporter`
 - Output: per-recipient totals, grand koi total, top-10 recipients, per-ship breakdown (first 50). No HCB/USD values are printed — operator does that conversion separately.
 - Always idempotent — safe to run multiple times. Layer 4 absorbs duplicates.
 
-If you change the rate (currently `7`) or the source-of-truth field (currently `approved_seconds`), update both this doc and the user-visible documentation under `docs/`. **Historical KoiTransactions are immutable** — a rate change does NOT retroactively re-award; rerunning the rake task will skip already-awarded ships via layer 4.
+If you change the rate (currently `7`) or the source-of-truth field (currently `approved_public_seconds`), update both this doc and the user-visible documentation under `docs/`. **Historical KoiTransactions are immutable** — a rate change does NOT retroactively re-award; rerunning the rake task will skip already-awarded ships via layer 4.
 
 ### Where Balance Is Surfaced
 
@@ -475,7 +476,7 @@ Both `User#koi` and `User#gold` short-circuit to `0` for trial users. `ShopOrder
 | Identity gate flapping | Promotion is one-way; `clear_hca_session!` does not demote |
 | Project flag mid-review | `available_for` excludes flagged ships from queues; `*ReviewPolicy#show?` blocks non-admin view |
 | Admin overriding terminal status | `Ship#status_transition_allowed` model validation prevents it; `ShipPolicy#update?` is `admin?` only but the validation still fires |
-| YouTube stretch_multiplier race with hours aggregation | TA annotation is the source of truth; `sync_youtube_stretch_multipliers!` runs before `sync_approved_seconds_from_ta!` so aggregation queries see the right value |
+| YouTube stretch_multiplier race with hours aggregation | TA annotation is the source of truth; `sync_youtube_stretch_multipliers!` runs before `sync_approved_public_seconds_from_ta!` so aggregation queries see the right value |
 | Notification failure rolling back review | `notify_status_change` rescues all exceptions and logs; review save commits regardless |
 
 ---

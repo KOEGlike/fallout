@@ -574,12 +574,12 @@ export default function AdminUnifiedInspect({ inspection }: { inspection: Unifie
                 <span className="text-muted-foreground">→</span>{' '}
                 <span
                   className={`tabular-nums font-medium ${
-                    time_audit.original_seconds > time_audit.approved_seconds
+                    time_audit.original_seconds > time_audit.approved_public_seconds
                       ? 'text-amber-600 dark:text-amber-400'
                       : ''
                   }`}
                 >
-                  {formatDuration(time_audit.approved_seconds)} approved
+                  {formatDuration(time_audit.approved_public_seconds)} approved
                 </span>
                 {time_audit.reviewer && (
                   <>

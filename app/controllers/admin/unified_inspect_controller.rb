@@ -41,8 +41,8 @@ class Admin::UnifiedInspectController < ApplicationController
         owner_display_name: ship.user.display_name,
         owner_email: ship.user.email,
         owner_slack_id: ship.user.slack_id,
-        public_hours: ship.approved_seconds ? (ship.approved_seconds / 3600.0).round(1) : nil,
-        internal_hours: compute_internal_hours(ship),
+        public_hours: ship.approved_public_seconds ? (ship.approved_public_seconds / 3600.0).round(1) : nil,
+        internal_hours: internal_hours_display(ship),
         koi_awarded: KoiTransaction.where(ship_id: ship.id, reason: "ship_review").sum(:amount),
         frozen_repo_link: ship.frozen_repo_link,
         frozen_demo_link: ship.frozen_demo_link.presence,
@@ -150,7 +150,7 @@ class Admin::UnifiedInspectController < ApplicationController
 
     {
       original_seconds: original_seconds,
-      approved_seconds: ta.approved_seconds,
+      approved_public_seconds: ta.approved_public_seconds,
       reviewer: reviewer_label(ta.reviewer),
       feedback: ta.feedback.presence,
       entries: serialized_entries
@@ -158,7 +158,7 @@ class Admin::UnifiedInspectController < ApplicationController
   end
 
   # Per-recording shape consumed by the inspector page. `original_seconds` and
-  # `approved_seconds` mirror the per-recording side of Ship#compute_approved_seconds
+  # `approved_seconds` mirror the per-recording side of Ship#compute_approved_public_seconds
   # so auditors can see the deflation applied to each video without re-deriving it.
   def serialize_ta_recording(rec, ann)
     recordable = rec.recordable
@@ -239,11 +239,11 @@ class Admin::UnifiedInspectController < ApplicationController
     version&.created_at || ship.updated_at
   end
 
-  def compute_internal_hours(ship)
-    base = ship.approved_seconds || 0
-    dr_adj = ship.design_review&.hours_adjustment || 0
-    br_adj = ship.build_review&.hours_adjustment || 0
-    return nil if base.zero? && dr_adj.zero? && br_adj.zero?
-    ((base + dr_adj + br_adj) / 3600.0).round(1)
+  # nil when nothing has been approved or adjusted yet, so the inspector shows
+  # blank instead of "0.0h" for ships still in flight.
+  def internal_hours_display(ship)
+    seconds = ship.approved_internal_seconds
+    return nil if seconds.zero?
+    (seconds / 3600.0).round(1)
   end
 end

@@ -88,7 +88,7 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
   end
 
   def review_params
-    permitted = params.require(:time_audit_review).permit(:status, :feedback, :approved_seconds)
+    permitted = params.require(:time_audit_review).permit(:status, :feedback, :approved_public_seconds)
     if params.dig(:time_audit_review, :annotations)
       raw = params[:time_audit_review][:annotations]&.to_unsafe_h
       # Only allow the expected { "recordings" => { "<id>" => { ... } } } structure
@@ -119,7 +119,7 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
       ship_id: review.ship_id,
       status: review.status,
       feedback: review.feedback,
-      approved_seconds: review.approved_seconds,
+      approved_public_seconds: review.approved_public_seconds,
       annotations: review.annotations,
       reviewer_display_name: review.reviewer&.display_name,
       created_at: review.created_at.strftime("%B %d, %Y")

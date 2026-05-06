@@ -34,8 +34,8 @@ namespace :koi do
         user_id: ship.user.id,
         user_display_name: ship.user.display_name,
         project_name: ship.project.name,
-        approved_seconds: ship.approved_seconds.to_i,
-        hours: (ship.approved_seconds.to_i / 3600.0).round(2),
+        approved_public_seconds: ship.approved_public_seconds.to_i,
+        hours: (ship.approved_public_seconds.to_i / 3600.0).round(2),
         amount: amount,
         trial: ship.user.trial?
       }

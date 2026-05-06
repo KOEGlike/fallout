@@ -7,16 +7,19 @@
 #  ban_reason                  :text
 #  ban_type                    :string
 #  bio                         :text
+#  country                     :string
 #  device_token                :text
 #  discarded_at                :datetime
 #  display_name                :string           not null
 #  email                       :string           not null
+#  first_name                  :string
 #  gold_balance                :integer          default(0), not null
 #  has_hca_address             :boolean          default(FALSE), not null
 #  hca_token                   :text
 #  is_adult                    :boolean          default(FALSE), not null
 #  is_banned                   :boolean          default(FALSE), not null
 #  lapse_token                 :text
+#  last_name                   :string
 #  onboarded                   :boolean          default(FALSE), not null
 #  pending_lookout_tokens      :string           default([]), not null, is an Array
 #  pronouns                    :string

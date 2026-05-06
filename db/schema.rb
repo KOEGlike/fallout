@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_04_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -593,7 +593,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000002) do
   end
 
   create_table "ships", force: :cascade do |t|
-    t.integer "approved_seconds"
+    t.integer "approved_public_seconds"
     t.datetime "created_at", null: false
     t.text "feedback"
     t.string "frozen_demo_link"
@@ -850,7 +850,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000002) do
 
   create_table "time_audit_reviews", force: :cascade do |t|
     t.jsonb "annotations"
-    t.integer "approved_seconds"
+    t.integer "approved_public_seconds"
     t.datetime "claim_expires_at"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -872,11 +872,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000002) do
     t.text "ban_reason"
     t.string "ban_type"
     t.text "bio"
+    t.string "country"
     t.datetime "created_at", null: false
     t.text "device_token"
     t.datetime "discarded_at"
     t.string "display_name", null: false
     t.string "email", null: false
+    t.string "first_name"
     t.integer "gold_balance", default: 0, null: false
     t.boolean "has_hca_address", default: false, null: false
     t.string "hca_id"
@@ -884,6 +886,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000002) do
     t.boolean "is_adult", default: false, null: false
     t.boolean "is_banned", default: false, null: false
     t.text "lapse_token"
+    t.string "last_name"
     t.boolean "onboarded", default: false, null: false
     t.string "pending_lookout_tokens", default: [], null: false, array: true
     t.string "pronouns"

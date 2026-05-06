@@ -106,8 +106,8 @@ class Admin::ProjectsController < Admin::ApplicationController
   end
 
   def serialize_ship_row(ship)
-    public_hrs = ship.approved_seconds ? (ship.approved_seconds / 3600.0).round(1) : nil
-    internal_hrs = compute_internal_hours(ship)
+    public_hrs = ship.approved_public_seconds ? (ship.approved_public_seconds / 3600.0).round(1) : nil
+    internal_hrs = internal_hours_display(ship)
     {
       id: ship.id,
       status: ship.status,
@@ -123,13 +123,12 @@ class Admin::ProjectsController < Admin::ApplicationController
     }
   end
 
-  def compute_internal_hours(ship)
-    base = ship.approved_seconds || 0
-    dr_adj = ship.design_review&.hours_adjustment || 0
-    br_adj = ship.build_review&.hours_adjustment || 0
-    total = base + dr_adj + br_adj
-    return nil if base.zero? && dr_adj.zero? && br_adj.zero?
-    (total / 3600.0).round(1)
+  # nil when nothing has been approved or adjusted yet, so the UI shows blank
+  # instead of "0.0h" for ships still in flight.
+  def internal_hours_display(ship)
+    seconds = ship.approved_internal_seconds
+    return nil if seconds.zero?
+    (seconds / 3600.0).round(1)
   end
 
   def serialize_journal_entry(je, ta_annotations)

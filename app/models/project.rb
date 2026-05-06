@@ -130,8 +130,8 @@ class Project < ApplicationRecord
 
     hours_logged = batch_time_logged(project_ids).transform_values { |s| s.to_f / 3600.0 }
 
-    hours_approved = Ship.where(project_id: project_ids)
-      .group(:project_id).sum(:approved_seconds)
+    hours_approved = Ship.approved.where(project_id: project_ids)
+      .group(:project_id).sum(:approved_public_seconds)
       .transform_values { |s| s.to_f / 3600.0 }
 
     {

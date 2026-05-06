@@ -74,7 +74,7 @@ class JustificationRenderer
     when "PROJECT_DESCRIPTION" then @ship.project.description
     when "SHIP_ID" then @ship.id
     when "LOGGED_HOURS" then format_hours(logged_seconds)
-    when "APPROVED_HOURS" then format_hours(@ship.approved_seconds.to_i)
+    when "APPROVED_HOURS" then format_hours(@ship.approved_public_seconds.to_i)
     when "INTERNAL_HOURS" then format_hours(internal_seconds)
     when "TOTAL_DEFLATION" then total_deflation_formatted
     when "JOURNAL_COUNT" then cycle_journal_entries.count
@@ -153,9 +153,7 @@ class JustificationRenderer
   end
 
   def internal_seconds
-    dr = @ship.design_review&.hours_adjustment.to_i
-    br = @ship.build_review&.hours_adjustment.to_i
-    @ship.approved_seconds.to_i + dr + br
+    @ship.approved_internal_seconds
   end
 
   # Sum of hours REMOVED across TA and Phase 2, expressed as positive seconds.
@@ -166,7 +164,7 @@ class JustificationRenderer
   #       the internal total, positive means time added (no deflation).
   #     - Only the ship_type-matching review runs (other is nil → 0).
   def total_deflation_seconds
-    ta = [ logged_seconds - @ship.approved_seconds.to_i, 0 ].max
+    ta = [ logged_seconds - @ship.approved_public_seconds.to_i, 0 ].max
     dr = [ -@ship.design_review&.hours_adjustment.to_i, 0 ].max
     br = [ -@ship.build_review&.hours_adjustment.to_i, 0 ].max
     ta + dr + br

@@ -1908,7 +1908,7 @@ export default function TimeAuditsShow({
         time_audit_review: {
           status: 'approved',
           annotations: annotationsRef.current,
-          approved_seconds: approvedSeconds,
+          approved_public_seconds: approvedSeconds,
         } as any,
       },
       {

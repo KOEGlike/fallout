@@ -2,22 +2,22 @@
 #
 # Table name: ships
 #
-#  id                :bigint           not null, primary key
-#  approved_seconds  :integer
-#  feedback          :text
-#  frozen_demo_link  :string
-#  frozen_hca_data   :text
-#  frozen_repo_link  :string
-#  frozen_screenshot :string
-#  justification     :string
-#  preflight_results :jsonb
-#  ship_type         :integer          default("design"), not null
-#  status            :integer          default("pending"), not null
-#  created_at        :datetime         not null
-#  updated_at        :datetime         not null
-#  preflight_run_id  :bigint
-#  project_id        :bigint           not null
-#  reviewer_id       :bigint
+#  id                      :bigint           not null, primary key
+#  approved_public_seconds :integer
+#  feedback                :text
+#  frozen_demo_link        :string
+#  frozen_hca_data         :text
+#  frozen_repo_link        :string
+#  frozen_screenshot       :string
+#  justification           :string
+#  preflight_results       :jsonb
+#  ship_type               :integer          default("design"), not null
+#  status                  :integer          default("pending"), not null
+#  created_at              :datetime         not null
+#  updated_at              :datetime         not null
+#  preflight_run_id        :bigint
+#  project_id              :bigint           not null
+#  reviewer_id             :bigint
 #
 # Indexes
 #
@@ -141,11 +141,11 @@ class Ship < ApplicationRecord
 
       # Three flavors of hours (see arch-ship-and-koi.md §7):
       "Logged Hours" => ->(s, pre) { ((pre[:logged_seconds][s.id] || 0).to_f / 3600.0).round(2) },
-      "Approved Hours" => ->(s) { (s.approved_seconds.to_f / 3600.0).round(2) },
+      "Approved Hours" => ->(s) { (s.approved_public_seconds.to_f / 3600.0).round(2) },
       "Internal Hours" => ->(s, pre) {
         dr_adj = pre[:reviews][:design][s.id]&.hours_adjustment.to_i
         br_adj = pre[:reviews][:build][s.id]&.hours_adjustment.to_i
-        ((s.approved_seconds.to_i + dr_adj + br_adj).to_f / 3600.0).round(2)
+        ((s.approved_public_seconds.to_i + dr_adj + br_adj).to_f / 3600.0).round(2)
       },
 
       "Koi Awarded" => ->(s, pre) { pre[:koi][s.id] || 0 },
@@ -240,7 +240,7 @@ class Ship < ApplicationRecord
 
   def recompute_status!
     new_status = derive_status
-    sync_approved_seconds_from_ta!
+    sync_approved_public_seconds_from_ta!
     if status != new_status
       attrs = { status: new_status }
       # Aggregate reviewer feedback onto the ship so MailDeliveryService includes it in notifications
@@ -250,13 +250,22 @@ class Ship < ApplicationRecord
     cancel_pending_reviews! if returned? || rejected?
   end
 
-  # Keep ship.approved_seconds in sync with the TA review's approved_seconds
-  def sync_approved_seconds_from_ta!
+  # Keep ship.approved_public_seconds in sync with the TA review's approved_public_seconds
+  def sync_approved_public_seconds_from_ta!
     ta = time_audit_review
-    return unless ta&.approved? && ta.approved_seconds.present?
+    return unless ta&.approved? && ta.approved_public_seconds.present?
     sync_youtube_stretch_multipliers!(ta)
-    return if approved_seconds == ta.approved_seconds
-    update_columns(approved_seconds: ta.approved_seconds)
+    return if approved_public_seconds == ta.approved_public_seconds
+    update_columns(approved_public_seconds: ta.approved_public_seconds)
+  end
+
+  # approved_public_seconds + DR/BR hours_adjustment. Phase 2 reviewers can credit
+  # or debit hours that the TA can't see (physical work off-camera, low-quality
+  # passes); the public number is what the user sees, internal is the operator's view.
+  def approved_internal_seconds
+    approved_public_seconds.to_i +
+      design_review&.hours_adjustment.to_i +
+      build_review&.hours_adjustment.to_i
   end
 
   # One-shot upload to the YSWS Unified Submissions Airtable table at the moment
@@ -406,7 +415,7 @@ class Ship < ApplicationRecord
       ta.update!(
         status: :approved,
         annotations: carried,
-        approved_seconds: compute_approved_seconds(carried)
+        approved_public_seconds: compute_approved_public_seconds(carried)
       )
     elsif carried["recordings"].any?
       # New recordings need review; carry forward existing annotations so reviewer only sees the delta
@@ -414,7 +423,7 @@ class Ship < ApplicationRecord
     end
   end
 
-  def compute_approved_seconds(annotations)
+  def compute_approved_public_seconds(annotations)
     total = 0
     new_journal_entries.includes(recordings: :recordable).each do |entry|
       entry.recordings.each do |rec|
@@ -491,12 +500,9 @@ class Ship < ApplicationRecord
     {}
   end
 
-  # approved_seconds + DR/BR hours_adjustment, in hours (1 decimal). Mirrors
-  # JustificationRenderer's INTERNAL_HOURS so the override-hours field and
-  # the justification prose agree.
+  # approved_internal_seconds in hours (1 decimal). Mirrors JustificationRenderer's
+  # INTERNAL_HOURS so the override-hours field and the justification prose agree.
   def internal_hours_for_unified
-    dr = design_review&.hours_adjustment.to_i
-    br = build_review&.hours_adjustment.to_i
-    ((approved_seconds.to_i + dr + br) / 3600.0).round(1)
+    (approved_internal_seconds / 3600.0).round(1)
   end
 end
