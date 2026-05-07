@@ -3,6 +3,7 @@
 # Returns the permalink of the matching message, or nil if none is found.
 class SlackCheckpointService
   CHANNEL_ID = "C0ATLF0ALBW"
+  MAX_TASK_TEXT_CHARS = 1200
 
   REVIEW_LABELS = {
     "time_audit"          => "Time Audit",
@@ -182,6 +183,7 @@ class SlackCheckpointService
     end
 
     detail = review.feedback.to_s.presence || review.status.to_s.capitalize
+    detail = truncate_for_slack(detail)
     build_task(
       task_id: "#{key}_#{review.id}",
       title: label_override || REVIEW_LABELS[key],
@@ -211,7 +213,7 @@ class SlackCheckpointService
         type: "rich_text",
         elements: [ {
           type: "rich_text_section",
-          elements: [ { type: "text", text: prior_output } ]
+          elements: [ { type: "text", text: truncate_for_slack(prior_output) } ]
         } ]
       }
     end
@@ -219,4 +221,9 @@ class SlackCheckpointService
     task
   end
   private_class_method :build_task
+
+  def self.truncate_for_slack(text)
+    text.to_s.truncate(MAX_TASK_TEXT_CHARS, omission: "...")
+  end
+  private_class_method :truncate_for_slack
 end
