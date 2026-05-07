@@ -18,7 +18,7 @@ class SlackAvatarService
       content_type: "image/jpeg"
     )
 
-    blob.url
+    Rails.application.routes.url_helpers.rails_blob_url(blob, host: base_url)
   rescue StandardError => e
     Rails.logger.warn("SlackAvatarService.card_icon_url failed: #{e.class}: #{e.message}")
     nil

@@ -36,7 +36,7 @@ class ReviewCardImageService
     composited_blob = composite(source_file.path, overlay_path)
     return nil unless composited_blob
 
-    composited_blob.url
+    Rails.application.routes.url_helpers.rails_blob_url(composited_blob, host: base_url)
   rescue StandardError => e
     Rails.logger.warn("ReviewCardImageService failed for project ##{project.id}: #{e.message}")
     nil
