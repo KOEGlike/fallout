@@ -25,7 +25,7 @@ class SlackProjectCardService
       },
       title: { type: "mrkdwn", text: project.name, verbatim: false },
       subtitle: { type: "mrkdwn", text: project.user.display_name, verbatim: false },
-      body: { type: "mrkdwn", text: project.description.to_s.truncate(280), verbatim: false },
+      body: { type: "mrkdwn", text: project.description.to_s.gsub(/\n+/, " ").truncate(200), verbatim: false },
       actions: actions
     }
 
