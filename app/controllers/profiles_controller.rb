@@ -34,7 +34,7 @@ class ProfilesController < ApplicationController
       current_user.custom_avatar.attach(params[:avatar_blob_signed_id])
     end
 
-    profile_attrs = params.permit(:email).to_h.compact_blank
+    profile_attrs = {}
     profile_attrs[:bio] = params[:bio] if params.key?(:bio)
     profile_attrs[:pronouns] = params[:pronouns].presence if params.key?(:pronouns)
 

@@ -98,10 +98,6 @@ function ProfileShow({
   const [activeTab, setActiveTab] = useState<Tab>('body')
   const [bio, setBio] = useState(initial_bio ?? '')
 
-  const [email, setEmail] = useState(initial_email)
-  const [emailFocused, setEmailFocused] = useState(false)
-  const [emailFitWidth, setEmailFitWidth] = useState<number | null>(null)
-  const emailMirrorRef = useRef<HTMLSpanElement>(null)
   const [selectedPronouns, setSelectedPronouns] = useState(pronouns)
   const [showPronounsMenu, setShowPronounsMenu] = useState(false)
   const pronounsRef = useRef<HTMLDivElement>(null)
@@ -116,7 +112,6 @@ function ProfileShow({
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [showPronounsMenu])
-  const [showEmailWarning, setShowEmailWarning] = useState(false)
   const [saving, setSaving] = useState(false)
   const [settingSlack, setSettingSlack] = useState(false)
   const [randomizing, setRandomizing] = useState(false)
@@ -388,7 +383,7 @@ function ProfileShow({
     setRandomizing(false)
   }
 
-  function handleSaveProfile(data: { bio?: string; email?: string; pronouns?: string | null }) {
+  function handleSaveProfile(data: { bio?: string; pronouns?: string | null }) {
     if (is_modal) {
       Axios.patch('/profile', data, { headers: modalHeaders() }).catch(() => notify('alert', 'Failed to save.'))
     } else {
@@ -479,45 +474,7 @@ function ProfileShow({
           )}
         </div>
         <span className="mt-1 w-1 h-1 bg-brown rounded-full inline-block" />
-        <div className="relative">
-          <span
-            ref={emailMirrorRef}
-            aria-hidden
-            className="absolute invisible whitespace-pre text-xs p-1 pointer-events-none"
-          >
-            {email || ' '}
-          </span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value)
-              if (e.target.value !== initial_email) setShowEmailWarning(true)
-            }}
-            onFocus={() => {
-              setEmailFocused(true)
-              setEmailFitWidth(null)
-            }}
-            onBlur={() => {
-              setEmailFocused(false)
-              setShowEmailWarning(false)
-              if (emailMirrorRef.current) setEmailFitWidth(emailMirrorRef.current.scrollWidth)
-              handleSaveProfile({ email })
-            }}
-            className="bg-transparent border-b px-1 pt-1 border-transparent hover:border-brown focus:border-brown outline-none text-brown text-xs min-w-0"
-            style={
-              emailFocused || emailFitWidth === null
-                ? { width: `calc(${Math.max(email.length, 10)}ch * 0.9)` }
-                : { width: emailFitWidth }
-            }
-          />
-          {showEmailWarning && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-dark-brown text-beige text-xs rounded-md px-3 py-2 z-10 text-center shadow-md">
-              This is the email your HCB cards will be sent to
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-dark-brown rotate-45" />
-            </div>
-          )}
-        </div>
+        <span className="text-brown text-xs px-1 pt-1">{initial_email}</span>
       </div>
       <div className="mt-2 flex flex-col items-center w-full max-w-80">
         <textarea
