@@ -416,11 +416,14 @@ class Ship < ApplicationRecord
     new_recordings = current_ids - reviewed_ids
 
     if new_recordings.empty? && prev_ta.approved?
-      # All current recordings already reviewed — auto-approve with recomputed time
+      # All current recordings already reviewed — auto-approve with recomputed time.
+      # Carry the prior TA's reviewer so downstream attribution (e.g. unified Airtable
+      # justification's TIME_AUDITOR) credits the human who actually did the work.
       ta.update!(
         status: :approved,
         annotations: carried,
-        approved_public_seconds: compute_approved_public_seconds(carried)
+        approved_public_seconds: compute_approved_public_seconds(carried),
+        reviewer_id: prev_ta.reviewer_id
       )
     elsif carried["recordings"].any?
       # New recordings need review; carry forward existing annotations so reviewer only sees the delta
