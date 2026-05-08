@@ -152,6 +152,8 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
       project_flagged: flagged_project_ids.include?(ship.project_id),
       reviewer_display_name: review.reviewer&.display_name,
       created_at: review.created_at.strftime("%b %d, %Y"),
+      waiting_since: ship.created_at.iso8601,
+      cycle_started_at: ship.cycle_started_at.iso8601,
       is_claimed: review.claimed?,
       claimed_by_display_name: review.claimed? ? review.reviewer&.display_name : nil,
       sibling_approved: sibling&.approved? || false,
@@ -164,7 +166,6 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     public_hrs = ship.approved_public_seconds ? (ship.approved_public_seconds / 3600.0).round(1) : nil
     internal_hrs = internal_hours_display(ship)
     entry_count = project.kept_journal_entries.size
-    first_ship = project.ships.order(:created_at).first
     {
       id: project.id,
       name: project.name,
@@ -185,7 +186,7 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
       frozen_repo_link: ship.frozen_repo_link,
       frozen_demo_link: ship.frozen_demo_link,
       waiting_since: ship.created_at.iso8601,
-      first_submitted_at: first_ship&.created_at&.iso8601
+      cycle_started_at: ship.cycle_started_at.iso8601
     }
   end
 

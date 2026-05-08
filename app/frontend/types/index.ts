@@ -370,6 +370,8 @@ export interface ReviewRow {
   project_flagged: boolean
   reviewer_display_name: string | null
   created_at: string
+  waiting_since: string
+  cycle_started_at: string | null
   is_claimed: boolean
   claimed_by_display_name: string | null
   sibling_approved: boolean
@@ -470,7 +472,7 @@ export interface RequirementsCheckProjectContext extends ReviewProjectContext {
   frozen_repo_link: string | null
   frozen_demo_link: string | null
   waiting_since: string
-  first_submitted_at: string | null
+  cycle_started_at: string | null
 }
 
 export interface UnifiedInspectStage {

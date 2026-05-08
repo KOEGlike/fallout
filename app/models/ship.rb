@@ -203,6 +203,14 @@ class Ship < ApplicationRecord
     project.ships.approved.where("created_at < ?", created_at).order(created_at: :desc).first
   end
 
+  # First ship-submission timestamp in the current cycle (the cycle this ship belongs to).
+  # Used by reviewer "Waiting Xd (Yd)" labels — Y is total cycle wait, distinct from per-ship wait.
+  def cycle_started_at
+    cutoff = previous_approved_ship&.created_at || Time.at(0)
+    project.ships.where("created_at > ? AND created_at <= ?", cutoff, created_at)
+           .order(:created_at).pick(:created_at) || created_at
+  end
+
   def new_journal_entries
     cutoff = previous_approved_ship&.created_at || Time.at(0)
     project.journal_entries.kept.where("journal_entries.created_at > ?", cutoff)

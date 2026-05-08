@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/react'
 import { useReviewHeartbeat } from '@/hooks/useReviewHeartbeat'
 import ReviewLayout from '@/layouts/ReviewLayout'
 import HoursDisplay from '@/components/admin/HoursDisplay'
+import { WaitingLabel } from '@/components/admin/WaitingLabel'
 import { Badge } from '@/components/admin/ui/badge'
 import { Button } from '@/components/admin/ui/button'
 import { Separator } from '@/components/admin/ui/separator'
@@ -82,26 +83,6 @@ function SiblingBadge({ label, status }: { label: string; status: string | null 
       {label}: {status}
     </span>
   )
-}
-
-function formatWaitDuration(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
-  if (days < 1) return '<1d'
-  return `${days}d`
-}
-
-function WaitingLabel({ waitingSince, firstSubmittedAt }: { waitingSince: string; firstSubmittedAt: string | null }) {
-  const recent = formatWaitDuration(waitingSince)
-  const total = firstSubmittedAt ? formatWaitDuration(firstSubmittedAt) : null
-  if (total && total !== recent) {
-    return (
-      <span>
-        Waiting {recent} ({total})
-      </span>
-    )
-  }
-  return <span>Waiting {recent}</span>
 }
 
 // --- Collapsible Card ---
@@ -667,7 +648,7 @@ export default function BuildReviewsShow({
                   </>
                 )}
                 <span>|</span>
-                <WaitingLabel waitingSince={project.waiting_since} firstSubmittedAt={project.first_submitted_at} />
+                <WaitingLabel waitingSince={project.waiting_since} cycleStartedAt={project.cycle_started_at} />
               </div>
             </div>
 
