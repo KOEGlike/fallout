@@ -457,6 +457,8 @@ If you change the rate (currently `7`) or the source-of-truth field (currently `
 - Trial users blocked at validation level.
 - `fulfilled → rejected` transition allowed and refunds koi (via the `where.not(state: :rejected)` exclusion in `User#koi`).
 
+For the full ledger system (settle service, card lifecycle including closure refunds, divergence detection, admin UI scoping), see [arch-hcb-ledger.md](arch-hcb-ledger.md).
+
 ### Trial-user Suppression
 
 Both `User#koi` and `User#gold` short-circuit to `0` for trial users. `ShopOrder#user_can_afford` short-circuits if `user.trial?` because trial users are blocked at the policy layer (`ShopOrderPolicy` requires `!user.trial? && user.fully_identity_gated? && Flipper.enabled?(:shop, user)`).

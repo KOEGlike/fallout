@@ -66,13 +66,23 @@ class Admin::ProjectGrants::OrdersController < Admin::ApplicationController
     # A drift means either external HCB activity (actual > expected) or a missing sync
     # on our side (expected > actual). Same framing is used per-card on
     # admin/users/show.
+    # Both sides scoped to active cards only: closed cards (canceled/expired)
+    # have an auto-booked `out` row that intentionally drives ledger_net to the
+    # spent amount, while `amount_cents` stays at the historical grant total —
+    # comparing the two would always show a phantom drift on closed cards.
+    active_card_ids = HcbGrantCard.where(status: "active").pluck(:id)
+    # Spending = settled purchases only (excludes pending/declined/reversed) so the
+    # dollar figure reflects money that actually moved. HCB stores card-charge
+    # debits as negative amount_cents — flip to positive for display.
+    settled_purchases = HcbTransaction.purchases.settled
     stats = {
-      issued_actual_cents: HcbGrantCard.sum(:amount_cents),
-      issued_expected_cents: ProjectFundingTopup.kept.where(status: "completed").sum(
+      issued_actual_cents: HcbGrantCard.where(id: active_card_ids).sum(:amount_cents),
+      issued_expected_cents: ProjectFundingTopup.kept.where(status: "completed", hcb_grant_card_id: active_card_ids).sum(
         Arel.sql("CASE direction WHEN 'out' THEN -amount_cents ELSE amount_cents END")
       ),
-      active_cards: HcbGrantCard.where(status: "active").count,
-      transactions: HcbTransaction.purchases.count
+      active_cards: active_card_ids.size,
+      spending_cents: -settled_purchases.sum(:amount_cents),
+      spending_count: settled_purchases.count
     }
 
     render inertia: "admin/project_grants/orders/index", props: {
