@@ -309,7 +309,7 @@ class Admin::ProjectGrants::OrdersController < Admin::ApplicationController
 
     {
       id: order.id,
-      user: { id: user.id, display_name: user.display_name, email: user.email, avatar: user.avatar },
+      user: { id: user.id, display_name: user.display_name, email: user.email, hcb_email: user.hcb_email_for_grants, avatar: user.avatar },
       frozen_koi_amount: order.frozen_koi_amount,
       frozen_usd_cents: order.frozen_usd_cents,
       state: order.state,
