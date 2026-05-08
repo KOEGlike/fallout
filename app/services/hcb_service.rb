@@ -117,15 +117,6 @@ module HcbService
     end.body
   end
 
-  def cancel_card_grant(card_grant_id)
-    stub = noop_write(:cancel_card_grant, { id: card_grant_id, status: "canceled" })
-    return stub if stub
-
-    authenticated_connection.post(
-      "/api/v4/card_grants/#{card_grant_id}/cancel"
-    ).body
-  end
-
   def topup_card_grant(card_grant_id, amount_cents:)
     stub = noop_write(:topup_card_grant, { id: card_grant_id, amount_cents: amount_cents })
     return stub if stub

@@ -163,7 +163,12 @@ class ProjectGrantWarning < ApplicationRecord
                                                .group(:hcb_grant_card_id)
                                                .sum(Arel.sql("CASE direction WHEN 'out' THEN -amount_cents ELSE amount_cents END"))
 
-    HcbGrantCard.issued.includes(:user).find_each do |card|
+    # Skip closed cards (canceled/expired): once HCB returns the unspent balance
+    # to the org, `card.amount_cents` (the historical grant total) no longer
+    # represents reality — and HcbGrantCardSyncJob#book_closure_refund! has
+    # already booked an `out` row that intentionally drives ledger_net below
+    # amount_cents. Comparing the two would warn forever for every closed card.
+    HcbGrantCard.issued.where(status: "active").includes(:user).find_each do |card|
       ledger_net = ledger_net_by_card_id[card.id] || 0
       next if card.amount_cents == ledger_net
 

@@ -106,10 +106,6 @@ class HcbGrantCard < ApplicationRecord
     )
   end
 
-  def cancel!
-    update!(status: "canceled", canceled_at: Time.current)
-  end
-
   def stale?
     last_synced_at.nil? || last_synced_at < 15.minutes.ago
   end
