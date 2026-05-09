@@ -23,7 +23,8 @@ export default function AdminKoiTransactionsNew({
   function submit(e: React.FormEvent) {
     e.preventDefault()
     const key = currency === 'gold' ? 'gold_transaction' : 'koi_transaction'
-    form.transform((data) => ({ [key]: data })).post(`/admin/koi_transactions?currency=${currency}`)
+    form.transform((data) => ({ [key]: data }))
+    form.post(`/admin/koi_transactions?currency=${currency}`)
   }
 
   function switchCurrency(c: 'koi' | 'gold') {
