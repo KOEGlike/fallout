@@ -10,7 +10,7 @@ class ProfilesController < ApplicationController
       avatar: current_user.custom_avatar.attached? ? url_for(current_user.custom_avatar) : current_user.avatar,
       current_streak: StreakDay.current_streak(current_user),
       total_hours: (current_user.total_time_logged_seconds / 3600.0).round(1),
-      approved_hours: (Ship.approved.where(project: current_user.projects.kept).sum(:approved_public_seconds).to_f / 3600.0).round(1),
+      approved_hours: (current_user.approved_time_logged_seconds / 3600.0).round(1),
       body_images: Dir.glob(Rails.root.join("public/pfp/body/*")).map { |f| "/pfp/body/#{File.basename(f)}" }.sort,
       bg_images: Dir.glob(Rails.root.join("public/pfp/bg/*")).map { |f| "/pfp/bg/#{File.basename(f)}" }.sort,
       eye_images: Dir.glob(Rails.root.join("public/pfp/eyes/*")).map { |f| "/pfp/eyes/#{File.basename(f)}" }.sort,

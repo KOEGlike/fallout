@@ -441,6 +441,21 @@ class User < ApplicationRecord
     all_ids.sum { |pid| m = member_counts[pid].to_i; m > 0 ? seconds_by_project[pid].to_i / m : 0 }
   end
 
+  def approved_time_logged_seconds
+    owned_ids = projects.kept.pluck(:id)
+    collab_ids = collaborated_projects.kept.pluck(:id)
+    all_ids = (owned_ids + collab_ids).uniq
+    return 0 if all_ids.empty?
+
+    seconds_by_project = Ship.approved
+      .joins(:project)
+      .where(projects: { id: all_ids, discarded_at: nil })
+      .group("projects.id")
+      .sum(:approved_public_seconds)
+    member_counts = Project.batch_member_counts(all_ids)
+    all_ids.sum { |pid| m = member_counts[pid].to_i; m > 0 ? seconds_by_project[pid].to_i / m : 0 }
+  end
+
   def koi
     return 0 if trial? # Trial users cannot earn or spend koi
 
