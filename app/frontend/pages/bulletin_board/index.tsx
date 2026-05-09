@@ -1257,22 +1257,17 @@ const ExploreSection = memo(function ExploreSection({ explore, exploreStats, inn
 
       <div ref={exploreJumpLayerRef} className={styles.exploreJumpLayer}>
         <div className={styles.exploreJumpInner}>
-          <AnimatePresence initial={false}>
-            {showExploreJump && (
-              <motion.button
-                key="explore-jump"
-                transition={EXPLORE_POSITION_TRANSITION}
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                type="button"
-                className={styles.exploreJumpButton}
-                onClick={scrollToExploreControls}
-              >
-                Scroll to top
-              </motion.button>
-            )}
-          </AnimatePresence>
+          <motion.button
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={EXPLORE_POSITION_TRANSITION}
+            animate={showExploreJump ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 8, scale: 0.98 }}
+            type="button"
+            className={styles.exploreJumpButton}
+            style={{ pointerEvents: showExploreJump ? 'auto' : 'none' }}
+            onClick={scrollToExploreControls}
+          >
+            Scroll to top
+          </motion.button>
         </div>
       </div>
 
