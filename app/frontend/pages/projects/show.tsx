@@ -3,7 +3,7 @@ import { router } from '@inertiajs/react'
 import { Modal, ModalLink, useModal } from '@inertiaui/modal-react'
 import { BookOpenIcon, ClockIcon, CheckIcon } from '@heroicons/react/16/solid'
 import { EllipsisHorizontalIcon } from '@heroicons/react/20/solid'
-import { ArrowLeft, Pencil, Trash2, Feather, Loader2, Link2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, Feather, Loader2, Link2, FileDown } from 'lucide-react'
 import { DateTime } from 'luxon'
 import BookLayout from '@/components/shared/BookLayout'
 import Button from '@/components/shared/Button'
@@ -668,7 +668,7 @@ export default function ProjectsShow({
                   {actionMenuOpen && (
                     <div
                       role="menu"
-                      className="absolute left-0 top-full mt-2 z-20 min-w-44 bg-light-brown border-2 border-dark-brown rounded shadow-md py-1"
+                      className="absolute left-0 bottom-full mb-2 z-50 min-w-44 bg-light-brown border-2 border-dark-brown rounded shadow-md py-1"
                     >
                       {can.share && (
                         <button
@@ -703,9 +703,9 @@ export default function ProjectsShow({
                     <a
                       href={`/projects/${project.id}/export_journal`}
                       aria-label="Export journal.md"
-                      className="bg-brown text-light-brown border-2 border-dark-brown rounded px-3 h-10 flex items-center justify-center hover:opacity-80 cursor-pointer text-xs font-bold uppercase"
+                      className="bg-brown text-light-brown border-2 border-dark-brown rounded w-10 h-10 flex items-center justify-center hover:opacity-80 cursor-pointer"
                     >
-                      Export
+                      <FileDown className="w-5 h-5" />
                     </a>
                   </TooltipTrigger>
                   <TooltipContent>Export journal.md</TooltipContent>
