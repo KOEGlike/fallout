@@ -73,6 +73,13 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
   def update
     authorize @review
 
+    # Reviewer can update the project's demo_link from the BR form — optional, blank clears it.
+    # Authorization piggybacks on the BR update permission; we don't go through ProjectPolicy
+    # because pass2 reviewers wouldn't normally have project edit rights.
+    if params.key?(:demo_link)
+      @review.ship.project.update_column(:demo_link, params[:demo_link].presence)
+    end
+
     if @review.update(review_params)
       if @review.approved? || @review.returned? || @review.rejected?
         redirect_to_next_or_index(notice: "Build review #{@review.status}.")

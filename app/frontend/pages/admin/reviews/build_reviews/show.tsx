@@ -483,6 +483,7 @@ export default function BuildReviewsShow({
     review.hours_adjustment != null ? String(review.hours_adjustment / 3600) : '',
   )
   const [goldAdjInput, setGoldAdjInput] = useState(review.gold_adjustment != null ? String(review.gold_adjustment) : '')
+  const [demoLinkInput, setDemoLinkInput] = useState(project.demo_link ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const [flagging, setFlagging] = useState(false)
@@ -571,6 +572,7 @@ export default function BuildReviewsShow({
             hours_adjustment: hoursAdjSeconds,
             gold_adjustment: goldAdjValue,
           } as any,
+          demo_link: demoLinkInput.trim(),
         },
         {
           onSuccess: () => {
@@ -596,7 +598,7 @@ export default function BuildReviewsShow({
         },
       )
     },
-    [review.id, feedback, internalReason, hoursAdjInput, goldAdjInput, skip],
+    [review.id, feedback, internalReason, hoursAdjInput, goldAdjInput, demoLinkInput, skip],
   )
 
   return (
@@ -858,6 +860,19 @@ export default function BuildReviewsShow({
               <Separator />
 
               <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">
+                    Demo Link <span className="text-muted-foreground/60">(optional)</span>
+                  </label>
+                  <Input
+                    type="url"
+                    value={demoLinkInput}
+                    onChange={(e) => setDemoLinkInput(e.target.value)}
+                    placeholder="https://..."
+                    className="h-8 text-sm"
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground">
                     Modify Hours <span className="text-muted-foreground/60">(not shown to user)</span>
