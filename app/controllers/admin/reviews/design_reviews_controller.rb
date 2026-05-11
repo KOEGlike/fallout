@@ -77,6 +77,7 @@ class Admin::Reviews::DesignReviewsController < Admin::Reviews::BaseController
       checkpoint_just_stored = true
     end
 
+    stamp_reviewer_for_terminal!(params.dig(:design_review, :status))
     if @review.update(review_params)
       if @review.approved? || @review.returned? || @review.rejected?
         if checkpoint_just_stored

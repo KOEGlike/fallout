@@ -57,6 +57,7 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
                            inertia: { errors: { feedback: [ "Feedback cannot be only a link. Please explain your time audit decision." ] } }
     end
 
+    stamp_reviewer_for_terminal!(params.dig(:time_audit_review, :status))
     if @review.update(params_for_update)
       respond_to do |format|
         format.json { render json: { ok: true } }

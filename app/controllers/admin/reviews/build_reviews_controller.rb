@@ -81,6 +81,7 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
       @review.ship.project.update_column(:demo_link, params[:demo_link].presence)
     end
 
+    stamp_reviewer_for_terminal!(params.dig(:build_review, :status))
     if @review.update(review_params)
       if @review.approved? || @review.returned? || @review.rejected?
         redirect_to_next_or_index(notice: "Build review #{@review.status}.")
