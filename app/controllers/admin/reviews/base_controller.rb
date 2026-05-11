@@ -319,6 +319,10 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
   # Cache key is bumped whenever any review of this type is touched (max updated_at).
   # Means a freshly-submitted review invalidates the cache on the next index load
   # without per-row tracking. Falls back to a fixed key when the table is empty.
+  #
+  # Perf: MAX(updated_at) without an index does a sequential scan; on current
+  # data sizes (low thousands of reviews) this is sub-millisecond. If the tables
+  # grow significantly, add an index on updated_at or switch to TTL-only invalidation.
   def compute_review_stats(model, include:)
     cache_stamp = model.maximum(:updated_at)&.to_i || 0
     Rails.cache.fetch(
@@ -366,10 +370,13 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
   # instead of loading full review rows — review tables carry a jsonb annotations
   # column we don't need here. Ships are loaded once by id and run through
   # Ship.preload_cycle_started_at to hit the shared Rails.cache.
+  #
+  # Status filter uses the positive set (decided enum values) so Postgres can hit
+  # the status index directly instead of NOT-IN'ing pending+cancelled.
   def turnaround_for_window(model, completion_col, window)
+    decided = [ model.statuses[:approved], model.statuses[:returned], model.statuses[:rejected] ]
     pairs = model.where(completion_col => window)
-      .where.not(status: model.statuses[:pending])
-      .where.not(status: model.statuses[:cancelled])
+      .where(status: decided)
       .pluck(completion_col, :ship_id)
     return { ship_days: nil, cycle_days: nil, count: 0 } if pairs.empty?
 
@@ -419,24 +426,30 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
   # Reship = ship with a prior returned/rejected ship for the same project.
   # Approved siblings are excluded — a follow-on after a clean approval is a new
   # cycle, not a "redo" of a failed attempt.
+  #
+  # Single round-trip: COUNT(*) FILTER (...) computes total and reships together.
+  # The EXISTS subquery hits ships.project_id (indexed) and is fast per row.
   def reship_ratio_for_window(model, completion_col, window)
-    table = model.table_name
-    scope = model.joins(:ship)
-      .where(table => { completion_col => window })
-      .where.not(status: model.statuses[:pending])
-      .where.not(status: model.statuses[:cancelled])
-
-    total = scope.count
-    return { percent: nil, count: 0 } if total.zero?
-
-    reships = scope.where(<<~SQL.squish).count
-      EXISTS (
-        SELECT 1 FROM ships s2
-        WHERE s2.project_id = ships.project_id
-          AND s2.created_at < ships.created_at
-          AND s2.status IN (#{Ship.statuses[:returned]}, #{Ship.statuses[:rejected]})
+    decided = [ model.statuses[:approved], model.statuses[:returned], model.statuses[:rejected] ]
+    row = model.joins(:ship)
+      .where(model.table_name => { completion_col => window })
+      .where(status: decided)
+      .pick(
+        Arel.sql("COUNT(*)"),
+        Arel.sql(<<~SQL.squish)
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM ships s2
+              WHERE s2.project_id = ships.project_id
+                AND s2.created_at < ships.created_at
+                AND s2.status IN (#{Ship.statuses[:returned]}, #{Ship.statuses[:rejected]})
+            )
+          )
+        SQL
       )
-    SQL
+    total = row&.first.to_i
+    reships = row&.last.to_i
+    return { percent: nil, count: 0 } if total.zero?
 
     { percent: ((reships.to_f / total) * 100).round(1), count: total }
   end
