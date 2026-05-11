@@ -1,5 +1,4 @@
 require "flipper/adapters/active_record"
-require "flipper/adapters/active_support_cache_store"
 
 Rails.application.configure do
   ## Memoization ensures that only one adapter call is made per feature per request.
@@ -37,16 +36,7 @@ Rails.application.configure do
 end
 
 Flipper.configure do |config|
-  # Wrap the AR adapter with Rails.cache (Redis in prod) so the per-request feature
-  # preload hits cache instead of Postgres. Writes through Flipper invalidate the
-  # cache, so flag toggles propagate immediately; the TTL is a safety net for drift.
-  config.adapter do
-    Flipper::Adapters::ActiveSupportCacheStore.new(
-      Flipper::Adapters::ActiveRecord.new,
-      Rails.cache,
-      expires_in: 1.minute
-    )
-  end
+  config.adapter { Flipper::Adapters::ActiveRecord.new }
 end
 
 ## Register a group that can be used for enabling features.
