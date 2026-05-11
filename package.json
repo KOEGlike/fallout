@@ -9,8 +9,8 @@
     "react-scan": "^0.5.3",
     "sass-embedded": "^1.99.0",
     "shadcn": "^4.1.2",
-    "vite": "^7.3.2",
-    "vite-plugin-ruby": "^5.2.1"
+    "vite": "^8.0.12",
+    "vite-plugin-ruby": "^5.2.2"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -76,6 +76,7 @@
   },
   "scripts": {
     "check": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "format": "prettier --write 'app/frontend/**/*.{ts,tsx,js}'",
     "format:check": "prettier --check 'app/frontend/**/*.{ts,tsx,js}'"
   }
 }

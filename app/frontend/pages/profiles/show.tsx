@@ -723,9 +723,7 @@ function ProfileShow({
 
   const integrationsView = (
     <div className="flex flex-col sm:flex-row h-full p-4 md:p-6 gap-4 md:gap-6">
-      <div className="flex flex-row flex-wrap whitespace-nowrap sm:flex-col gap-2 sm:w-32 shrink-0">
-        {navButtons}
-      </div>
+      <div className="flex flex-row flex-wrap whitespace-nowrap sm:flex-col gap-2 sm:w-32 shrink-0">{navButtons}</div>
       <div className="flex flex-col gap-5 max-w-md w-full">
         <h1 className="font-bold text-2xl text-dark-brown">Integrations</h1>
 
