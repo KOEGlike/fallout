@@ -3,7 +3,10 @@ class Admin::Reviews::DesignReviewsController < Admin::Reviews::BaseController
     base = policy_scope(DesignReview)
       .includes(ship: [ :project, :time_audit_review, project: :user, requirements_check_review: :reviewer ], reviewer: [])
 
-    pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).order(created_at: :asc).load
+    # Order by ship.created_at so the longest-waiting ship floats to the top —
+    # the DR row is created later (after TA approval), so DR.created_at doesn't
+    # reflect how long the student has actually been waiting.
+    pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).joins(:ship).order("ships.created_at ASC").load
     @pagy, @all_reviews = pagy(base.order(created_at: :desc))
     flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
     Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
