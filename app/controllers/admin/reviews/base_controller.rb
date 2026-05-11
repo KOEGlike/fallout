@@ -42,13 +42,7 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
   end
 
   def set_review
-    # Eager-load the ship/project/user/collaborators graph used by serialize_project_context
-    # so the show render doesn't fan out to per-row queries. Heartbeat fires every ~30s
-    # while a reviewer holds a claim and only touches the review itself, so skip the
-    # extra joins on that path.
-    scope = review_model
-    scope = scope.includes(ship: { project: [ :user, { collaborators: :user } ] }) unless action_name == "heartbeat"
-    @review = scope.find(params[:id])
+    @review = review_model.find(params[:id])
   end
 
   # -- Claim lifecycle --
