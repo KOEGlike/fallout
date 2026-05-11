@@ -68,6 +68,11 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
   end
 
   def swap_type
+    # Inline find — base controller's set_review only fires for show/update/heartbeat,
+    # and redeclaring `before_action :set_review, only: %i[swap_type]` would dedup
+    # against the parent (Rails set_callback removes prior entries with the same
+    # symbol filter), breaking the base's filter for everything else.
+    @review = BuildReview.find(params[:id])
     authorize @review, :swap_type?
     new_review = @review.ship.swap_phase_two_type!
     redirect_to admin_reviews_design_review_path(new_review), notice: "Moved to Design Review."
