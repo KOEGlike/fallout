@@ -444,12 +444,12 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     total = scope.count
     return { percent: nil, count: 0 } if total.zero?
 
-    reships = scope.where(<<~SQL.squish).count
+    reships = scope.where(<<~SQL.squish, returned: Ship.statuses[:returned], rejected: Ship.statuses[:rejected]).count
       EXISTS (
         SELECT 1 FROM ships s2
         WHERE s2.project_id = ships.project_id
           AND s2.created_at < ships.created_at
-          AND s2.status IN (#{Ship.statuses[:returned]}, #{Ship.statuses[:rejected]})
+          AND s2.status IN (:returned, :rejected)
       )
     SQL
 
