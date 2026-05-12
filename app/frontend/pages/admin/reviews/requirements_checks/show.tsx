@@ -475,7 +475,6 @@ interface PageProps {
   sibling_statuses: SiblingStatuses
   repo_tree?: RepoTreeData | null
   refresh_tree_path: string
-  gerber_zip_files_path: string
   reviewer_notes?: ReviewerNote[]
   reviewer_notes_path: string
   project_flagged: boolean
@@ -494,7 +493,6 @@ export default function RequirementsChecksShow({
   sibling_statuses,
   repo_tree,
   refresh_tree_path,
-  gerber_zip_files_path,
   reviewer_notes,
   reviewer_notes_path,
   project_flagged,
@@ -883,12 +881,7 @@ export default function RequirementsChecksShow({
                   </div>
                 }
               >
-                <RepoTree
-                  data={repo_tree}
-                  repoLink={project.repo_link}
-                  bare
-                  gerberZipFilesPath={gerber_zip_files_path}
-                />
+                <RepoTree data={repo_tree} repoLink={project.repo_link} bare />
               </CollapsibleCard>
             )}
 

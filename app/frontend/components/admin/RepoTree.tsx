@@ -1,7 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon, RefreshCwIcon } from 'lucide-react'
 import type { RepoTreeEntry, RepoTreeData } from '@/types'
-import FilePreviewPanel from '@/components/admin/FilePreviewPanel'
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -51,13 +50,11 @@ function buildTree(entries: RepoTreeEntry[]): TreeNode[] {
 function TreeFolder({
   node,
   depth,
-  onFileClick,
-  selectedPath,
+  fileUrl,
 }: {
   node: TreeNode
   depth: number
-  onFileClick: (path: string, size?: number | null) => void
-  selectedPath: string | null
+  fileUrl: (path: string) => string
 }) {
   const [open, setOpen] = useState(depth === 0)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -116,21 +113,9 @@ function TreeFolder({
           {open &&
             node.children.map((child) =>
               child.type === 'tree' ? (
-                <TreeFolder
-                  key={child.path}
-                  node={child}
-                  depth={depth + 1}
-                  onFileClick={onFileClick}
-                  selectedPath={selectedPath}
-                />
+                <TreeFolder key={child.path} node={child} depth={depth + 1} fileUrl={fileUrl} />
               ) : (
-                <FileEntry
-                  key={child.path}
-                  node={child}
-                  depth={depth + 1}
-                  onFileClick={onFileClick}
-                  isSelected={selectedPath === child.path}
-                />
+                <FileEntry key={child.path} node={child} depth={depth + 1} fileUrl={fileUrl} />
               ),
             )}
         </div>
@@ -156,18 +141,18 @@ function TreeFolder({
 function FileEntry({
   node,
   depth,
-  onFileClick,
-  isSelected,
+  fileUrl,
 }: {
   node: TreeNode
   depth: number
-  onFileClick: (path: string, size?: number | null) => void
-  isSelected: boolean
+  fileUrl: (path: string) => string
 }) {
   return (
-    <button
-      onClick={() => onFileClick(node.path, node.size)}
-      className={`flex items-center gap-1 py-0.5 rounded transition-colors w-full text-left cursor-pointer ${isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50 text-foreground'}`}
+    <a
+      href={fileUrl(node.path)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1 py-0.5 rounded transition-colors w-full text-left cursor-pointer hover:bg-muted/50 text-foreground"
       style={{ paddingLeft: `${depth * 16 + 4 + 12}px` }}
     >
       <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -175,7 +160,7 @@ function FileEntry({
       {node.size != null && (
         <span className="text-muted-foreground shrink-0 ml-1 pr-1">{formatFileSize(node.size)}</span>
       )}
-    </button>
+    </a>
   )
 }
 
@@ -201,14 +186,12 @@ export default function RepoTree({
   refreshing,
   onRefresh,
   bare,
-  gerberZipFilesPath,
 }: {
   data: RepoTreeData
   repoLink: string
   refreshing?: boolean
   onRefresh?: () => void
   bare?: boolean
-  gerberZipFilesPath?: string
 }) {
   const tree = useMemo(() => buildTree(data.entries), [data.entries])
   const githubBase = repoLink.replace(/\/+$/, '').replace(/\/tree\/[^/]+$/, '')
@@ -217,87 +200,23 @@ export default function RepoTree({
   const updatedStr = formatRepoDate(data.pushed_at)
   const createdStr = formatRepoDate(data.created_at)
 
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [selectedSize, setSelectedSize] = useState<number | null | undefined>(null)
-  const treeScrollRef = useRef<HTMLDivElement>(null)
-  const scrollPosRef = useRef(0)
+  const fileUrl = (path: string) => `${githubBase}/blob/${branch}/${path.split('/').map(encodeURIComponent).join('/')}`
 
-  const handleFileClick = (path: string, size?: number | null) => {
-    if (selectedFile === path) {
-      setSelectedFile(null)
-    } else {
-      // Save scroll position before panel opens
-      if (treeScrollRef.current) {
-        scrollPosRef.current = treeScrollRef.current.scrollTop
-      }
-      setSelectedFile(path)
-      setSelectedSize(size)
-      // Restore scroll position after render
-      requestAnimationFrame(() => {
-        if (treeScrollRef.current) {
-          treeScrollRef.current.scrollTop = scrollPosRef.current
-        }
-      })
-    }
-  }
-
-  const splitContent = (
-    <div className="flex h-[500px] overflow-hidden">
-      {/* Tree pane — always present, shrinks when preview is open */}
-      <div
-        ref={treeScrollRef}
-        className="overflow-y-auto shrink-0"
-        style={{
-          width: selectedFile ? '50%' : '100%',
-          transition: 'width 300ms cubic-bezier(0.19, 1, 0.22, 1)',
-        }}
-      >
-        <div className="p-2 text-xs">
-          {tree.map((node) =>
-            node.type === 'tree' ? (
-              <TreeFolder
-                key={node.path}
-                node={node}
-                depth={0}
-                onFileClick={handleFileClick}
-                selectedPath={selectedFile}
-              />
-            ) : (
-              <FileEntry
-                key={node.path}
-                node={node}
-                depth={0}
-                onFileClick={handleFileClick}
-                isSelected={selectedFile === node.path}
-              />
-            ),
-          )}
-        </div>
-      </div>
-      {/* Preview pane — slides in from the right */}
-      <div
-        className="overflow-hidden"
-        style={{
-          width: selectedFile ? '50%' : '0%',
-          opacity: selectedFile ? 1 : 0,
-          transition: 'width 300ms cubic-bezier(0.19, 1, 0.22, 1), opacity 300ms cubic-bezier(0.19, 1, 0.22, 1)',
-        }}
-      >
-        {selectedFile && (
-          <FilePreviewPanel
-            filePath={selectedFile}
-            fileSize={selectedSize}
-            githubBase={githubBase}
-            branch={branch}
-            gerberZipFilesPath={gerberZipFilesPath}
-            onClose={() => setSelectedFile(null)}
-          />
+  const treeContent = (
+    <div className="h-125 overflow-y-auto">
+      <div className="p-2 text-xs">
+        {tree.map((node) =>
+          node.type === 'tree' ? (
+            <TreeFolder key={node.path} node={node} depth={0} fileUrl={fileUrl} />
+          ) : (
+            <FileEntry key={node.path} node={node} depth={0} fileUrl={fileUrl} />
+          ),
         )}
       </div>
     </div>
   )
 
-  if (bare) return splitContent
+  if (bare) return treeContent
 
   return (
     <div className="rounded-md border border-border overflow-hidden">
@@ -332,7 +251,7 @@ export default function RepoTree({
           </button>
         )}
       </div>
-      <div className="border-t border-border">{splitContent}</div>
+      <div className="border-t border-border">{treeContent}</div>
     </div>
   )
 }

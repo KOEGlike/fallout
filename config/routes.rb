@@ -12,7 +12,6 @@
 #                                                    PUT    /admin/reviews/time_audits/:id(.:format)                                                      admin/reviews/time_audits#update
 #         heartbeat_admin_reviews_requirements_check POST   /admin/reviews/requirements_checks/:id/heartbeat(.:format)                                    admin/reviews/requirements_checks#heartbeat
 #      refresh_tree_admin_reviews_requirements_check POST   /admin/reviews/requirements_checks/:id/refresh_tree(.:format)                                 admin/reviews/requirements_checks#refresh_tree
-#  gerber_zip_files_admin_reviews_requirements_check GET    /admin/reviews/requirements_checks/:id/gerber_zip_files(.:format)                             admin/reviews/requirements_checks#gerber_zip_files
 #             next_admin_reviews_requirements_checks GET    /admin/reviews/requirements_checks/next(.:format)                                             admin/reviews/requirements_checks#next
 #                  admin_reviews_requirements_checks GET    /admin/reviews/requirements_checks(.:format)                                                  admin/reviews/requirements_checks#index
 #                   admin_reviews_requirements_check GET    /admin/reviews/requirements_checks/:id(.:format)                                              admin/reviews/requirements_checks#show
@@ -289,7 +288,6 @@ Rails.application.routes.draw do
           member do
             post :heartbeat
             post :refresh_tree
-            get :gerber_zip_files
           end
           collection { get :next }
         end
