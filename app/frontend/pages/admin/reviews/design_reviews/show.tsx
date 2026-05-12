@@ -34,6 +34,8 @@ import {
   LoaderIcon,
   GlobeIcon,
   ChevronDownIcon,
+  ArrowUpRightIcon,
+  CopyIcon,
 } from 'lucide-react'
 import ProjectNotesWindow from '@/components/admin/ProjectNotesWindow'
 import RepoTree from '@/components/admin/RepoTree'
@@ -791,6 +793,27 @@ export default function DesignReviewsShow({
                   ' dirs | ' +
                   repo_tree.entries.filter((e) => e.type === 'blob').length +
                   ' files'
+                }
+                trailing={
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`https://hurt-xi.vercel.app/?repo=${encodeURIComponent(project.repo_link)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 rounded border border-foreground bg-foreground px-2 py-0.5 text-xs font-semibold text-background hover:opacity-80 transition-opacity"
+                    >
+                      Open in HURT
+                      <ArrowUpRightIcon className="size-3" />
+                    </a>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(project.repo_link!) }}
+                      title="Copy repo URL"
+                      className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      <CopyIcon className="size-3.5" />
+                    </button>
+                  </div>
                 }
               >
                 <RepoTree data={repo_tree} repoLink={project.repo_link} bare />
