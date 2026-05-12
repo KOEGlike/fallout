@@ -113,6 +113,10 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
           next unless entry.file?
           ext = File.extname(entry.name).delete_prefix(".").downcase
           next unless gerber_extensions.include?(ext)
+          # Reject zip bombs: flag entries whose ratio of uncompressed to compressed size is suspiciously high
+          if entry.compressed_size > 0 && entry.size > entry.compressed_size * 100
+            return render json: { error: "Zip file appears to be a zip bomb" }, status: :unprocessable_entity
+          end
           files << { name: File.basename(entry.name), content: entry.get_input_stream.read.force_encoding("UTF-8") }
         end
       end

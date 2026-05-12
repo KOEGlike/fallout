@@ -1,7 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon, RefreshCwIcon } from 'lucide-react'
 import type { RepoTreeEntry, RepoTreeData } from '@/types'
-import FilePreviewPanel from '@/components/admin/FilePreviewPanel'
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -51,13 +50,13 @@ function buildTree(entries: RepoTreeEntry[]): TreeNode[] {
 function TreeFolder({
   node,
   depth,
-  onFileClick,
   selectedPath,
+  getGithubUrl,
 }: {
   node: TreeNode
   depth: number
-  onFileClick: (path: string, size?: number | null) => void
-  selectedPath: string | null
+  selectedPath?: string | null
+  getGithubUrl: (path: string) => string
 }) {
   const [open, setOpen] = useState(depth === 0)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -120,7 +119,7 @@ function TreeFolder({
                   key={child.path}
                   node={child}
                   depth={depth + 1}
-                  onFileClick={onFileClick}
+                  getGithubUrl={getGithubUrl}
                   selectedPath={selectedPath}
                 />
               ) : (
@@ -128,8 +127,7 @@ function TreeFolder({
                   key={child.path}
                   node={child}
                   depth={depth + 1}
-                  onFileClick={onFileClick}
-                  isSelected={selectedPath === child.path}
+                  githubUrl={getGithubUrl(child.path)}
                 />
               ),
             )}
@@ -156,18 +154,18 @@ function TreeFolder({
 function FileEntry({
   node,
   depth,
-  onFileClick,
-  isSelected,
+  githubUrl,
 }: {
   node: TreeNode
   depth: number
-  onFileClick: (path: string, size?: number | null) => void
-  isSelected: boolean
+  githubUrl: string
 }) {
   return (
-    <button
-      onClick={() => onFileClick(node.path, node.size)}
-      className={`flex items-center gap-1 py-0.5 rounded transition-colors w-full text-left cursor-pointer ${isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50 text-foreground'}`}
+    <a
+      href={githubUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1 py-0.5 rounded transition-colors w-full text-left hover:bg-muted/50 text-foreground"
       style={{ paddingLeft: `${depth * 16 + 4 + 12}px` }}
     >
       <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -175,7 +173,7 @@ function FileEntry({
       {node.size != null && (
         <span className="text-muted-foreground shrink-0 ml-1 pr-1">{formatFileSize(node.size)}</span>
       )}
-    </button>
+    </a>
   )
 }
 
@@ -201,14 +199,12 @@ export default function RepoTree({
   refreshing,
   onRefresh,
   bare,
-  gerberZipFilesPath,
 }: {
   data: RepoTreeData
   repoLink: string
   refreshing?: boolean
   onRefresh?: () => void
   bare?: boolean
-  gerberZipFilesPath?: string
 }) {
   const tree = useMemo(() => buildTree(data.entries), [data.entries])
   const githubBase = repoLink.replace(/\/+$/, '').replace(/\/tree\/[^/]+$/, '')
@@ -216,41 +212,15 @@ export default function RepoTree({
   const nwo = githubBase.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] ?? 'Repository'
   const updatedStr = formatRepoDate(data.pushed_at)
   const createdStr = formatRepoDate(data.created_at)
-
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [selectedSize, setSelectedSize] = useState<number | null | undefined>(null)
   const treeScrollRef = useRef<HTMLDivElement>(null)
-  const scrollPosRef = useRef(0)
 
-  const handleFileClick = (path: string, size?: number | null) => {
-    if (selectedFile === path) {
-      setSelectedFile(null)
-    } else {
-      // Save scroll position before panel opens
-      if (treeScrollRef.current) {
-        scrollPosRef.current = treeScrollRef.current.scrollTop
-      }
-      setSelectedFile(path)
-      setSelectedSize(size)
-      // Restore scroll position after render
-      requestAnimationFrame(() => {
-        if (treeScrollRef.current) {
-          treeScrollRef.current.scrollTop = scrollPosRef.current
-        }
-      })
-    }
-  }
+  const getGithubUrl = (path: string) => `${githubBase}/blob/${branch}/${path}`
 
   const splitContent = (
     <div className="flex h-[500px] overflow-hidden">
-      {/* Tree pane — always present, shrinks when preview is open */}
       <div
         ref={treeScrollRef}
-        className="overflow-y-auto shrink-0"
-        style={{
-          width: selectedFile ? '50%' : '100%',
-          transition: 'width 300ms cubic-bezier(0.19, 1, 0.22, 1)',
-        }}
+        className="overflow-y-auto w-full"
       >
         <div className="p-2 text-xs">
           {tree.map((node) =>
@@ -259,40 +229,18 @@ export default function RepoTree({
                 key={node.path}
                 node={node}
                 depth={0}
-                onFileClick={handleFileClick}
-                selectedPath={selectedFile}
+                getGithubUrl={getGithubUrl}
               />
             ) : (
               <FileEntry
                 key={node.path}
                 node={node}
                 depth={0}
-                onFileClick={handleFileClick}
-                isSelected={selectedFile === node.path}
+                githubUrl={getGithubUrl(node.path)}
               />
             ),
           )}
         </div>
-      </div>
-      {/* Preview pane — slides in from the right */}
-      <div
-        className="overflow-hidden"
-        style={{
-          width: selectedFile ? '50%' : '0%',
-          opacity: selectedFile ? 1 : 0,
-          transition: 'width 300ms cubic-bezier(0.19, 1, 0.22, 1), opacity 300ms cubic-bezier(0.19, 1, 0.22, 1)',
-        }}
-      >
-        {selectedFile && (
-          <FilePreviewPanel
-            filePath={selectedFile}
-            fileSize={selectedSize}
-            githubBase={githubBase}
-            branch={branch}
-            gerberZipFilesPath={gerberZipFilesPath}
-            onClose={() => setSelectedFile(null)}
-          />
-        )}
       </div>
     </div>
   )

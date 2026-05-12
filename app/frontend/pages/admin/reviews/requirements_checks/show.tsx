@@ -35,6 +35,7 @@ import {
   ChevronDownIcon,
   RefreshCwIcon,
   ArrowUpRightIcon,
+  CopyIcon,
 } from 'lucide-react'
 import ProjectNotesWindow from '@/components/admin/ProjectNotesWindow'
 import RepoTree from '@/components/admin/RepoTree'
@@ -394,12 +395,22 @@ function TopBar({
           </a>
         </Button>
         {isSafeUrl(project.repo_link) && (
-          <Button variant="outline" size="sm" asChild>
-            <a href={project.repo_link!} target="_blank" rel="noopener noreferrer">
-              <GitBranchIcon data-icon="inline-start" />
-              Repo
-            </a>
-          </Button>
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <a href={project.repo_link!} target="_blank" rel="noopener noreferrer">
+                <GitBranchIcon data-icon="inline-start" />
+                Repo
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(project.repo_link!)}
+              title="Copy repo URL"
+            >
+              <CopyIcon className="size-3.5" />
+            </Button>
+          </>
         )}
         {isSafeUrl(project.demo_link) && (
           <Button variant="outline" size="sm" asChild>
@@ -467,7 +478,6 @@ interface PageProps {
   sibling_statuses: SiblingStatuses
   repo_tree?: RepoTreeData | null
   refresh_tree_path: string
-  gerber_zip_files_path: string
   reviewer_notes?: ReviewerNote[]
   reviewer_notes_path: string
   project_flagged: boolean
@@ -486,7 +496,6 @@ export default function RequirementsChecksShow({
   sibling_statuses,
   repo_tree,
   refresh_tree_path,
-  gerber_zip_files_path,
   reviewer_notes,
   reviewer_notes_path,
   project_flagged,
@@ -835,7 +844,7 @@ export default function RequirementsChecksShow({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                      className="inline-flex items-center gap-1 rounded border border-foreground bg-foreground px-2 py-0.5 text-xs font-semibold text-background hover:opacity-80 transition-opacity"
                     >
                       Open in HURT
                       <ArrowUpRightIcon className="size-3" />
@@ -860,7 +869,6 @@ export default function RequirementsChecksShow({
                   data={repo_tree}
                   repoLink={project.repo_link}
                   bare
-                  gerberZipFilesPath={gerber_zip_files_path}
                 />
               </CollapsibleCard>
             )}

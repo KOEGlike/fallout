@@ -481,7 +481,8 @@ class User < ApplicationRecord
 
     {
       first_project_created_at: Project.kept.where(user_id: user_ids).group(:user_id).minimum(:created_at),
-      latest_visit_country: latest_visit_country
+      latest_visit_country: latest_visit_country,
+      last_journal_at: JournalEntry.kept.where(user_id: user_ids).group(:user_id).maximum(:created_at)
     }
   end
 
@@ -498,7 +499,8 @@ class User < ApplicationRecord
       "First Project Created At" => ->(u, pre) { pre[:first_project_created_at][u.id]&.iso8601 },
       "Created At" => ->(u) { u.created_at&.iso8601 },
       "Deleted At" => ->(u) { u.discarded_at&.iso8601 },
-      "Email Verified" => ->(u) { !u.trial? }
+      "Email Verified" => ->(u) { !u.trial? },
+      "Is Active" => ->(u, pre) { pre[:last_journal_at][u.id].present? && pre[:last_journal_at][u.id] >= 8.days.ago }
     }
   end
 
