@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon, RefreshCwIcon } from 'lucide-react'
+import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon, RefreshCwIcon, ArrowUpRightIcon, CopyIcon } from 'lucide-react'
 import type { RepoTreeEntry, RepoTreeData } from '@/types'
 
 function formatFileSize(bytes: number): string {
@@ -240,6 +240,22 @@ export default function RepoTree({
           </span>
         )}
         {!updatedStr && !createdStr && <span className="flex-1" />}
+        <a
+          href={`https://hurt-xi.vercel.app/?repo=${encodeURIComponent(repoLink)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded bg-foreground text-background text-xs font-semibold px-2 py-0.5 hover:opacity-80 transition-opacity"
+        >
+          Open in HURT
+          <ArrowUpRightIcon className="size-3" />
+        </a>
+        <button
+          onClick={() => navigator.clipboard.writeText(repoLink)}
+          title="Copy repo URL"
+          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <CopyIcon className="size-3.5" />
+        </button>
         {onRefresh && (
           <button
             onClick={onRefresh}
