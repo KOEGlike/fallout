@@ -161,6 +161,19 @@ module HcbService
     ).body
   end
 
+  # Org-level transactions endpoint. Used by HcbDonationSyncJob to scan for
+  # incoming donations (filters: { revenue: true } limits the page to inflows).
+  # Read-only — no noop_write wrap. Response shape is `{ data: [...], total_count:, has_more: }`.
+  def list_organization_transactions(filters: {}, after: nil, limit: 100)
+    params = { limit: limit }
+    params[:after] = after if after
+    filters.each { |k, v| params["filters[#{k}]"] = v }
+
+    authenticated_connection.get(
+      "/api/v4/organizations/#{ORGANIZATION_ID}/transactions", params
+    ).body
+  end
+
   # === Private Helpers ===
 
   def ensure_configured!

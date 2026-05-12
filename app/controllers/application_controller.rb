@@ -51,7 +51,8 @@ class ApplicationController < ActionController::Base
     {
       collaborators: Flipper.enabled?(:collaborators, current_user),
       shop: Flipper.enabled?(:shop, current_user),
-      grant_fulfillment: Flipper.enabled?(:grant_fulfillment, current_user)
+      grant_fulfillment: Flipper.enabled?(:grant_fulfillment, current_user),
+      hcb_top_ups: Flipper.enabled?(:hcb_top_ups, current_user)
     }
   }
   # has_unread_mail and current_streak are scoped to PathController only (see PathController)

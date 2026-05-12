@@ -131,6 +131,38 @@ Both row types live in `HcbTransaction` keyed off `transaction_type` (`purchase 
 
 ---
 
+## 4.5. Donation Top-Ups (User-Funded)
+
+A second money-in path: students donate their own real dollars to the Fallout HCB org via `https://hcb.hackclub.com/donations/start/fallout`, and the equivalent amount is auto-loaded onto their active grant card. These do **not** consume the user's koi-funded entitlement.
+
+### Flow
+1. Authenticated full user with an active issued HCB card visits `/top_ups/new`, enters a dollar amount, clicks Donate.
+2. [`TopUpsController#create`](../app/controllers/top_ups_controller.rb) creates an [`HcbDonationRequest`](../app/models/hcb_donation_request.rb) with a unique 12-char `[A-Z2-9]` token + `amount_cents`. The interstitial `top_ups/redirect.tsx` page bounces the user out to HCB with the token in the donation `message` field.
+3. User pays on HCB.
+4. [`HcbDonationSyncJob`](../app/jobs/hcb_donation_sync_job.rb) (every 5 min) walks the org revenue transactions, extracts the token from `donation.message` via `Top[- ]up of HCB grant ([A-Z2-9]{12})\.?`, finds the matching `HcbDonationRequest`, and (when `!donation[:refunded]`) books a `ProjectFundingTopup` and tops up the card.
+
+### Booking gate is just `!refunded`
+We book on both `in_transit: true` and `deposited: true`. Stripe payouts take 1–2 business days; making users wait that long would defeat the purpose. The card may go overdrawn if HCB later reverses the donation before deposit — `donation_refunded_after_match` surfaces that for admin reconciliation.
+
+### Why `counts_toward_funding: false` is load-bearing
+The settle service's `funding_transferred_usd_cents` (the input to `delta_cents`) filters by `counts_toward_funding: true`. Booking the donation top-up with `false` means it never reduces what future koi-funded orders send — but `ratchet_send_amount!`'s `ledger_net` includes it, so `excess` stays 0 against HCB's `amount_cents` (which also grows by the donation). No phantom drift.
+
+### Idempotency
+- `hcb_donation_id` is uniquely indexed on `hcb_donation_requests`.
+- Sentinel `"Donation top-up: hcb_donation_id=<don_id>"` in the `ProjectFundingTopup#note` is the **crash-recovery key**: if the HCB call succeeded but the post-call `req.update!` never ran, the next sync pass finds the orphan note-marked row and fast-forwards instead of double-issuing.
+- The match runs inside the same advisory lock as the settle service (`pft:#{user.id}`), so a concurrent settle and a donation match for the same user serialize.
+
+### Why the HCB call sits *inside* the transaction (unlike the settle service)
+The settle service uses a partial unique index on `(user_id, status='pending')` as its pre-commit idempotency anchor. That index is reserved for `direction: in` topups going through the settle path — booking a `pending` donation row would collide with any in-flight settle. So we book the donation row as `completed` directly and let the inside-the-txn HCB call rollback the row on failure. The orphan-note crash-recovery scan covers the inverse failure (HCB call succeeded, post-call update failed).
+
+### Refund-after-match
+Never auto-claw-back from the card (it may already be spent). `detect_refund!` records `donation_refunded_after_match` and sets `refunded_at`. Admin decides whether to record an `out` adjustment.
+
+### No-active-card edge case
+If a user's card was canceled between the donation submit and our match, the donation lands in the org with nowhere to route. We record `donation_no_active_card`; admin must refund the donation on HCB or issue a new card and book a manual top-up.
+
+---
+
 ## 5. Divergence Detection
 
 [`ProjectGrantWarning`](../app/models/project_grant_warning.rb) is the surface for ledger anomalies. Detection runs in two places:
@@ -143,6 +175,10 @@ Both row types live in `HcbTransaction` keyed off `transaction_type` (`purchase 
 - `pending_topup_stuck` — pending row older than 30 minutes; settle won't retry until reconciled.
 - `dangling_card` — local card has no `hcb_id` and is older than 5 minutes (partial first-issue failure).
 - `ratchet_capped` — settle tried to send more than the ledger allows; safety triggered.
+- `donation_no_active_card` — donation matched a request, but user has no active issued card at match time.
+- `donation_refunded_after_match` — HCB flipped `refunded: true` after we booked the top-up.
+- `donation_amount_mismatch` — donation amount on HCB differs from the user's submitted intent.
+- `donation_donor_mismatch` — donation's `donor.email` differs from the user's email; refused to book.
 
 ### `scan_ledger_divergence!` scopes to active cards only
 Closed cards intentionally diverge post-fix: the auto-booked `out` drives `ledger_net` down to the spent amount, while `amount_cents` stays at the historical grant total. Comparing the two would warn forever for every closed card. The scan is `HcbGrantCard.issued.where(status: "active")`.
@@ -210,3 +246,7 @@ Per [AGENTS.md](../AGENTS.md):
 | Admin orders + warnings | [app/controllers/admin/project_grants/orders_controller.rb](../app/controllers/admin/project_grants/orders_controller.rb) |
 | Admin manual adjustments | [app/controllers/admin/project_grants/adjustments_controller.rb](../app/controllers/admin/project_grants/adjustments_controller.rb) |
 | Admin settings | [app/controllers/admin/project_grants/settings_controller.rb](../app/controllers/admin/project_grants/settings_controller.rb) |
+| Donation top-up intent | [app/models/hcb_donation_request.rb](../app/models/hcb_donation_request.rb) |
+| Donation top-up policy | [app/policies/hcb_donation_request_policy.rb](../app/policies/hcb_donation_request_policy.rb) |
+| Donation top-up user UI | [app/controllers/top_ups_controller.rb](../app/controllers/top_ups_controller.rb) |
+| Donation sync job (org-level) | [app/jobs/hcb_donation_sync_job.rb](../app/jobs/hcb_donation_sync_job.rb) |

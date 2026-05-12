@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_214116) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_12_155903) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -242,6 +242,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_214116) do
     t.datetime "token_expires_at"
     t.datetime "updated_at", null: false
     t.index ["connected_by_id"], name: "index_hcb_connections_on_connected_by_id"
+  end
+
+  create_table "hcb_donation_requests", force: :cascade do |t|
+    t.integer "amount_cents", null: false
+    t.datetime "created_at", null: false
+    t.datetime "discarded_at"
+    t.datetime "donated_at"
+    t.string "hcb_donation_id"
+    t.datetime "last_seen_at"
+    t.datetime "matched_at"
+    t.bigint "project_funding_topup_id"
+    t.datetime "refunded_at"
+    t.string "token", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["discarded_at"], name: "index_hcb_donation_requests_on_discarded_at"
+    t.index ["hcb_donation_id"], name: "index_hcb_donation_requests_on_hcb_donation_id", unique: true, where: "(hcb_donation_id IS NOT NULL)"
+    t.index ["matched_at"], name: "index_hcb_donation_requests_on_matched_at"
+    t.index ["project_funding_topup_id"], name: "index_hcb_donation_requests_on_project_funding_topup_id"
+    t.index ["token"], name: "index_hcb_donation_requests_on_token", unique: true
+    t.index ["user_id"], name: "index_hcb_donation_requests_on_user_id"
+    t.check_constraint "amount_cents > 0", name: "hcb_donation_requests_amount_cents_positive"
   end
 
   create_table "hcb_grant_cards", force: :cascade do |t|
@@ -969,6 +991,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_214116) do
   add_foreign_key "gold_transactions", "users"
   add_foreign_key "gold_transactions", "users", column: "actor_id"
   add_foreign_key "hcb_connections", "users", column: "connected_by_id"
+  add_foreign_key "hcb_donation_requests", "project_funding_topups"
+  add_foreign_key "hcb_donation_requests", "users"
   add_foreign_key "hcb_grant_cards", "users"
   add_foreign_key "hcb_transactions", "hcb_grant_cards"
   add_foreign_key "journal_entries", "projects"

@@ -496,6 +496,10 @@ Rails.application.routes.draw do
   # User-facing project funding requests. Admin approval lives under /admin/project_grants/orders.
   resources :project_grants, only: [ :index, :new, :create ]
 
+  # User-funded top-ups via HCB donations. Money lands on the user's active card
+  # without consuming koi-funded entitlement (counts_toward_funding: false).
+  resources :top_ups, only: [ :index, :new, :create ]
+
   # Adblocker-safe tracking redirects — sets utm_source on Ahoy visit without query params
   %w[infill rmrrf infill-2026 rmrrf-2026].each do |slug|
     get slug => "tracking_redirects#show", defaults: { slug: slug }
