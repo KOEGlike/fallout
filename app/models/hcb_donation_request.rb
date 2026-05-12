@@ -37,13 +37,6 @@ class HcbDonationRequest < ApplicationRecord
   # bug from booking a topup we link to a different user's intent.
   validate :project_funding_topup_belongs_to_user
 
-  # Matched rows have real money attached: the linked ProjectFundingTopup is a
-  # completed ledger entry. Only the explicit mark_refunded! path may write to
-  # them (it sets refunded_at via update_columns and bypasses readonly?).
-  def readonly?
-    persisted? && matched_at_was.present?
-  end
-
   def destroy
     raise ActiveRecord::ReadOnlyRecord, "HcbDonationRequest cannot be destroyed; use #discard where allowed"
   end
