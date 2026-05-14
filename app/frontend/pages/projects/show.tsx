@@ -592,6 +592,9 @@ export default function ProjectsShow({
             <span className="flex items-center gap-1">
               <ClockIcon className="w-4 h-4" />
               {formatTime(project.time_logged)}
+              {project.user_time_logged !== null && project.user_time_logged !== project.time_logged && (
+                <span className="text-brown">({formatTime(project.user_time_logged)} yours)</span>
+              )}
             </span>
           </div>
 
@@ -914,7 +917,9 @@ export default function ProjectsShow({
                             exactTime,
                             `By ${entry.author_display_name}`,
                             entry.recordings_count > 0
-                              ? `${formatTime(entry.time_logged)} tracked`
+                              ? entry.user_time_logged !== null && entry.user_time_logged !== entry.time_logged
+                                ? `${formatTime(entry.time_logged)} tracked (${formatTime(entry.user_time_logged)} yours)`
+                                : `${formatTime(entry.time_logged)} tracked`
                               : 'No recording attached',
                           ]
 

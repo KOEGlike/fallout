@@ -434,30 +434,36 @@ class User < ApplicationRecord
     earliest_visit_with_ref&.utm_source
   end
 
+  # Hours attributed to this user across every project they're a member of, plus journal
+  # entries where they're an attributed collaborator on someone else's project. Each journal
+  # entry's seconds are divided among its attribution set (author + kept collaborators);
+  # the user's share of each project's manual_seconds is added on top. Used by the shop 60h
+  # qualification bar, the path 60h dialog gate, and the profile total — keep this method
+  # the single source of truth so all three stay consistent.
   def total_time_logged_seconds
-    owned_ids = projects.kept.pluck(:id)
-    collab_ids = collaborated_projects.kept.pluck(:id)
-    all_ids = (owned_ids + collab_ids).uniq
+    all_ids = projects_attributable_to_self_ids
     return 0 if all_ids.empty?
-
-    seconds_by_project = Project.batch_time_logged(all_ids)
-    member_counts = Project.batch_member_counts(all_ids)
-    all_ids.sum { |pid| m = member_counts[pid].to_i; m > 0 ? seconds_by_project[pid].to_i / m : 0 }
+    Project.batch_user_logged_seconds(all_ids, self).values.sum
   end
 
   def approved_time_logged_seconds
-    owned_ids = projects.kept.pluck(:id)
-    collab_ids = collaborated_projects.kept.pluck(:id)
-    all_ids = (owned_ids + collab_ids).uniq
+    all_ids = projects_attributable_to_self_ids
     return 0 if all_ids.empty?
+    Project.batch_user_approved_seconds(all_ids, self).values.sum
+  end
 
-    seconds_by_project = Ship.approved
-      .joins(:project)
-      .where(projects: { id: all_ids, discarded_at: nil })
-      .group("projects.id")
-      .sum(:approved_public_seconds)
-    member_counts = Project.batch_member_counts(all_ids)
-    all_ids.sum { |pid| m = member_counts[pid].to_i; m > 0 ? seconds_by_project[pid].to_i / m : 0 }
+  # Project IDs the user might receive attribution from: owned, collaborated-on, or
+  # authored/credited on a journal entry of someone else's project. The third bucket
+  # exists because journal collaborator credit doesn't require project collaborator
+  # membership (decided 2026-05-14: journal collaborators are the source of truth).
+  def projects_attributable_to_self_ids
+    owned = projects.kept.pluck(:id)
+    collab = collaborated_projects.kept.pluck(:id)
+    journal_authored = journal_entries.kept.distinct.pluck(:project_id)
+    journal_collab = JournalEntry.kept
+      .where(id: Collaborator.kept.where(user: self, collaboratable_type: "JournalEntry").select(:collaboratable_id))
+      .distinct.pluck(:project_id)
+    (owned + collab + journal_authored + journal_collab).uniq
   end
 
   def koi
@@ -507,21 +513,12 @@ class User < ApplicationRecord
       .order(:user_id, started_at: :desc)
       .each_with_object({}) { |v, h| h[v.user_id] = v.country }
 
-    owned = Project.kept.where(user_id: user_ids).pluck(:id, :user_id)
-    collab = Collaborator.kept
-      .joins("INNER JOIN users ON users.id = collaborators.user_id AND users.discarded_at IS NULL AND users.type IS NULL")
-      .where(collaboratable_type: "Project", collaboratable_id: owned.map(&:first))
-      .pluck(:collaboratable_id, :user_id)
-    project_ids_by_user = Hash.new { |h, k| h[k] = [] }
-    owned.each { |pid, uid| project_ids_by_user[uid] << pid }
-    collab.each { |pid, uid| project_ids_by_user[uid] << pid }
-    all_project_ids = project_ids_by_user.values.flatten.uniq
-    seconds_by_project = Project.batch_time_logged(all_project_ids)
-    member_counts = Project.batch_member_counts(all_project_ids)
-    db_hours = user_ids.to_h do |uid|
-      pids = project_ids_by_user[uid]
-      seconds = pids.sum { |pid| m = member_counts[pid].to_i; m > 0 ? seconds_by_project[pid].to_i / m : 0 }
-      [ uid, (seconds / 3600.0).floor ]
+    # Journal-attribution split is per-user; the batched query inside
+    # total_time_logged_seconds is small enough that calling it once per synced user is
+    # acceptable for this periodic background job. If the user count grows large enough
+    # to matter, hoist this into a single SQL aggregation by journal.
+    db_hours = where(id: user_ids).each_with_object({}) do |u, h|
+      h[u.id] = (u.total_time_logged_seconds / 3600.0).floor
     end
 
     {
@@ -590,8 +587,14 @@ class User < ApplicationRecord
     tz = ActiveSupport::TimeZone[timezone] || ActiveSupport::TimeZone["UTC"]
     quoted_tz = self.class.connection.quote(tz.tzinfo.identifier)
 
-    # Single query: earliest journal entry per day → extract hour, all in user's local timezone
-    hours = journal_entries.kept
+    # Every kept journal the user is on — authored or credited as a journal collaborator —
+    # so reminder timing reflects the rhythm of their entire journaling participation, not
+    # just solo authorship.
+    journal_ids = (journal_entries.kept.pluck(:id) +
+      JournalEntry.kept.where(id: Collaborator.kept.where(user: self, collaboratable_type: "JournalEntry").select(:collaboratable_id)).pluck(:id)).uniq
+    return 18 if journal_ids.empty?
+
+    hours = JournalEntry.where(id: journal_ids)
       .select(Arel.sql("EXTRACT(HOUR FROM MIN(created_at AT TIME ZONE 'UTC' AT TIME ZONE #{quoted_tz}))::int AS hour"))
       .group(Arel.sql("(created_at AT TIME ZONE 'UTC' AT TIME ZONE #{quoted_tz})::date"))
       .map(&:hour)
@@ -601,10 +604,9 @@ class User < ApplicationRecord
     hours.sort!
     median_hour = hours[hours.size / 2]
 
-    entry_ids = journal_entries.kept.select(:id)
-    total_seconds = LapseTimelapse.joins(:recording).where(recordings: { journal_entry_id: entry_ids }).sum(:duration).to_i +
-                    YouTubeVideo.joins(:recording).where(recordings: { journal_entry_id: entry_ids }).sum(Arel.sql("duration_seconds * stretch_multiplier")).to_i +
-                    LookoutTimelapse.joins(:recording).where(recordings: { journal_entry_id: entry_ids }).sum(:duration).to_i
+    # Attributed seconds per journaling day — keeps the "give them enough lead time" math
+    # honest for users whose share is fractional rather than the full recording duration.
+    total_seconds = JournalEntry.batch_user_attributed_seconds(journal_ids, self).values.sum
     avg_duration_hours = (total_seconds.to_f / hours.size / 3600).ceil
 
     (median_hour - avg_duration_hours).clamp(6, 22)

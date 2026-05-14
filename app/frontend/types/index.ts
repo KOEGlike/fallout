@@ -113,6 +113,7 @@ export interface ProjectCard {
   cover_image_url: string | null
   journal_entries_count: number
   time_logged: number
+  user_time_logged: number
   recordings_count: number
   is_collaborator: boolean
 }
@@ -130,6 +131,7 @@ export interface ProjectDetail {
   created_at: string
   created_at_iso: string
   time_logged: number
+  user_time_logged: number | null
   journal_entries_count: number
 }
 
@@ -150,6 +152,7 @@ export interface JournalEntryCard {
   author_display_name: string
   author_avatar: string
   time_logged: number
+  user_time_logged: number | null
   collaborators: { display_name: string; avatar: string }[]
   can_switch_project: boolean
   can_delete: boolean
@@ -249,6 +252,9 @@ export interface AdminProjectRow {
   journal_entries_count: number
   repo_link: string | null
   hours_tracked: number
+  // Present only when listing one user's projects (admin user-detail). Shows the share of
+  // hours_tracked attributed to that user via the journal-collaborator split.
+  user_hours_attributed?: number
   last_entry_at: string | null
   is_unlisted: boolean
   is_discarded: boolean

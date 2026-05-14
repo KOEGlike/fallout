@@ -96,7 +96,15 @@ const projectColumns: ColumnDef<AdminProjectRow>[] = [
   {
     accessorKey: 'hours_tracked',
     header: () => <div className="text-right">Hrs Tracked</div>,
-    cell: ({ row }) => <div className="text-right">{row.original.hours_tracked}</div>,
+    cell: ({ row }) => (
+      <div className="text-right">
+        {row.original.hours_tracked}
+        {row.original.user_hours_attributed !== undefined &&
+          row.original.user_hours_attributed !== row.original.hours_tracked && (
+            <span className="text-muted-foreground"> ({row.original.user_hours_attributed} theirs)</span>
+          )}
+      </div>
+    ),
   },
   {
     accessorKey: 'last_entry_at',

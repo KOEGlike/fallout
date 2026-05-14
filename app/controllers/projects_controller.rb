@@ -27,6 +27,7 @@ class ProjectsController < ApplicationController
       .where(journal_entries: { project_id: project_ids, discarded_at: nil })
       .group("journal_entries.project_id").count
     @time_logged_by_project = Project.batch_time_logged(project_ids)
+    @user_time_logged_by_project = Project.batch_user_logged_seconds(project_ids, current_user)
 
     render inertia: {
       projects: @projects.map { |p| serialize_project_card(p) },
@@ -66,6 +67,10 @@ class ProjectsController < ApplicationController
       helpers.render_user_markdown(entry_by_cache_key[key].content.to_s)
     end
     content_html_by_id = entry_by_cache_key.each_with_object({}) { |(key, entry), h| h[entry.id] = html_by_cache_key[key] }
+
+    journal_entry_ids = journal_entries.map(&:id)
+    @journal_seconds_by_je = JournalEntry.batch_time_logged(journal_entry_ids)
+    @user_journal_seconds_by_je = current_user ? JournalEntry.batch_user_attributed_seconds(journal_entry_ids, current_user) : {}
 
     render inertia: {
       project: serialize_project_detail(@project, journal_entries.size),
@@ -227,6 +232,7 @@ class ProjectsController < ApplicationController
       cover_image_url: cover_entry&.images&.first&.then { |img| url_for(img) },
       journal_entries_count: kept_entries.size,
       time_logged: @time_logged_by_project[project.id] || 0,
+      user_time_logged: @user_time_logged_by_project[project.id] || 0,
       recordings_count: @recordings_counts[project.id] || 0,
       is_collaborator: project.user_id != current_user.id # True when viewing a project you collaborate on (not own)
     }
@@ -246,6 +252,10 @@ class ProjectsController < ApplicationController
       created_at: project.created_at.strftime("%B %d, %Y"),
       created_at_iso: project.created_at.iso8601,
       time_logged: project.time_logged,
+      # Only expose the viewer's attributed share when they actually belong to the project
+      # — public viewers on a listed project shouldn't see a "0h yours" hint that just
+      # reveals they aren't a member.
+      user_time_logged: current_user && project.owner_or_collaborator?(current_user) ? project.user_logged_seconds(current_user) : nil,
       journal_entries_count: journal_entries_count
     }
   end
@@ -266,13 +276,10 @@ class ProjectsController < ApplicationController
       created_at_iso: journal_entry.created_at.iso8601,
       author_display_name: journal_entry.user.display_name,
       author_avatar: journal_entry.user.avatar,
-      time_logged: journal_entry.recordings.sum { |r|
-        if r.recordable.is_a?(YouTubeVideo)
-          r.recordable.duration_seconds.to_i * (r.recordable.stretch_multiplier || 1)
-        else
-          r.recordable.respond_to?(:duration_seconds) ? r.recordable.duration_seconds.to_i : r.recordable.duration.to_i
-        end
-      },
+      time_logged: @journal_seconds_by_je[journal_entry.id].to_i,
+      # Null when the viewer isn't in the journal's attribution set (e.g. signed-out / not
+      # a member). Frontend hides the bracket in that case rather than showing "0h yours".
+      user_time_logged: @user_journal_seconds_by_je[journal_entry.id],
       collaborators: journal_entry.collaborator_users.map { |u| { display_name: u.display_name, avatar: u.avatar } },
       can_switch_project: policy(journal_entry).switch_project?,
       can_delete: policy(journal_entry).destroy?

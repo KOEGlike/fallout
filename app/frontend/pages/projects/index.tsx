@@ -154,6 +154,9 @@ export default function ProjectsIndex({
                       <span className="flex items-center gap-1">
                         <ClockIcon className="w-3.5 h-3.5" />
                         {formatTime(project.time_logged)}
+                        {project.user_time_logged !== project.time_logged && (
+                          <span className="text-light-brown">({formatTime(project.user_time_logged)} yours)</span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1">
                         <FilmIcon className="w-3.5 h-3.5" />

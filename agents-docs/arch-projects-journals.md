@@ -52,7 +52,9 @@ Ship (audit-trailed)
 - **PaperTrail** for audit history
 
 **Key methods:**
-- `time_logged` — aggregates duration from LapseTimelapse (`:duration`) + YouTubeVideo (`:duration_seconds`) recordings. **Does not include LookoutTimelapse** durations (Lookout has duration but isn't aggregated here).
+- `time_logged` — aggregates duration from LapseTimelapse, LookoutTimelapse, and YouTubeVideo (stretch-multiplied) recordings across all kept journal entries on the project, plus admin-set `manual_seconds`.
+- `user_logged_seconds(user)` / `Project.batch_user_logged_seconds(ids, user)` — the user's attributed share of the project's hours. Each kept journal entry's seconds are divided among its attribution set (author ∪ kept journal collaborators); the user's share of `manual_seconds` is then added (split by project member_count). Used by My Projects cards, project detail header, and rolled up into `User#total_time_logged_seconds`.
+- `user_approved_seconds(user)` / `Project.batch_user_approved_seconds(ids, user)` — proportional split of approved TA seconds: `approved_public_seconds_P × user_share_P / total_logged_P`. Per-user sums equal the project's approved total exactly (no double-count).
 - `owner_or_collaborator?(user)` — checks ownership OR collaboration
 - `discard` (override) — **cascades in transaction**: soft-deletes collaborators, invites, and journal entries
 
@@ -67,6 +69,8 @@ Ship (audit-trailed)
 - **Validation**: author must own OR collaborate on the project
 - **Images**: up to 20 via Active Storage direct upload, validated content type + size
 - **Soft-delete**: custom `discard` destroys Recording links (freeing media for reuse) but preserves underlying timelapses/videos
+- **Collaborators**: polymorphic Collaborator rows (`collaboratable_type = "JournalEntry"`). Validated against project participants. Journal collaborators do NOT need to be project collaborators — adding someone as a journal collaborator credits them with attribution on this entry regardless.
+- **Hours attribution**: `JournalEntry#time_logged` sums recording durations. The entry's hours are shared equally among `{author} ∪ kept_collaborator_users` — this set is the divisor for `Project.batch_user_logged_seconds`. A discarded author still occupies a slot (so survivors don't quietly inherit a leaver's share), but no one renders attribution for a discarded user.
 
 **Policy (`app/policies/journal_entry_policy.rb`):**
 - `create?`: project owner always (preserves trial behavior); collaborators only if verified + flag enabled

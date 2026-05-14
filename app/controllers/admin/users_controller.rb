@@ -66,6 +66,10 @@ class Admin::UsersController < Admin::ApplicationController
         @entry_counts = JournalEntry.where(project_id: project_ids, discarded_at: nil).group(:project_id).count
         @last_entries = JournalEntry.where(project_id: project_ids, discarded_at: nil).group(:project_id).maximum(:created_at)
         @hours_tracked = Project.batch_time_logged(project_ids)
+        # Per-user attributed share alongside the project total — on a group project the
+        # raw `hours_tracked` overstates this user's contribution by N×, so we surface their
+        # actual share so admins aren't misled into thinking one user did all the work.
+        @user_hours_attributed = Project.batch_user_logged_seconds(project_ids, @user)
         @collaborators_by_project = Collaborator.kept
           .where(collaboratable_type: "Project", collaboratable_id: project_ids)
           .includes(:user)
@@ -299,6 +303,7 @@ class Admin::UsersController < Admin::ApplicationController
       journal_entries_count: @entry_counts[project.id] || 0,
       repo_link: project.repo_link,
       hours_tracked: ((@hours_tracked[project.id] || 0) / 3600.0).round(1),
+      user_hours_attributed: ((@user_hours_attributed[project.id] || 0) / 3600.0).round(1),
       last_entry_at: @last_entries[project.id]&.strftime("%b %d, %Y"),
       is_unlisted: project.is_unlisted,
       is_discarded: project.discarded?,

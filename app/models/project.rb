@@ -189,6 +189,110 @@ class Project < ApplicationRecord
     project_ids.to_h { |pid| [ pid, (kept_owner_ids.include?(pid) ? 1 : 0) + (collab_counts[pid] || 0) ] }
   end
 
+  # Seconds attributed to `user` from this project: their share of every journal entry's
+  # hours (journal_seconds / |journal_attribution_set|) summed across journals they're in,
+  # plus their per-member share of the admin-set manual_seconds.
+  def user_logged_seconds(user)
+    self.class.batch_user_logged_seconds([ id ], user)[id].to_i
+  end
+
+  # Approved counterpart of user_logged_seconds. Returns the user's proportional share of
+  # this project's TA-blessed approved_public_seconds. Proportional split (rather than
+  # journal-level approval) is used because approved_public_seconds is stored per ship,
+  # not per journal — TA adjustments are still respected since the ratio is taken against
+  # the raw project total. Sums across users always equal the project's approved total
+  # (no double-counting), and a project with zero raw logged time contributes zero.
+  def user_approved_seconds(user)
+    self.class.batch_user_approved_seconds([ id ], user)[id].to_i
+  end
+
+  # Returns { project_id => seconds_attributed_to_user } across the given projects.
+  # Iterates journal entries in Ruby after a pair of batched queries — N is bounded by
+  # total kept journal entries on the requested projects, which is small per-user.
+  def self.batch_user_logged_seconds(project_ids, user)
+    return {} if project_ids.empty? || user.nil?
+
+    project_by_je = JournalEntry.kept.where(project_id: project_ids).pluck(:id, :project_id).to_h
+    user_seconds_by_je = JournalEntry.batch_user_attributed_seconds(project_by_je.keys, user)
+
+    result = Hash.new(0)
+    user_seconds_by_je.each { |je_id, secs| result[project_by_je[je_id]] += secs }
+
+    member_counts = batch_member_counts(project_ids)
+    manuals = where(id: project_ids).pluck(:id, :manual_seconds).to_h
+    member_pids = project_ids_user_is_member_of(project_ids, user)
+    project_ids.each do |pid|
+      next unless member_pids.include?(pid)
+      mc = member_counts[pid].to_i
+      result[pid] += manuals[pid].to_i / mc if mc.positive?
+    end
+
+    result
+  end
+
+  # Returns { project_id => approved_seconds_attributed_to_user }. Uses the proportional
+  # rule documented on user_approved_seconds: approved_public_seconds_P × user_share_P /
+  # total_logged_P. Falls back to zero when total_logged_P is zero to avoid divide-by-zero.
+  def self.batch_user_approved_seconds(project_ids, user)
+    return {} if project_ids.empty? || user.nil?
+
+    approved_by_project = Ship.approved
+      .joins(:project)
+      .where(projects: { id: project_ids, discarded_at: nil })
+      .group("projects.id")
+      .sum(:approved_public_seconds)
+    return {} if approved_by_project.empty?
+
+    candidate_ids = approved_by_project.keys
+    total_by_project = batch_time_logged(candidate_ids)
+    user_by_project = batch_user_logged_seconds(candidate_ids, user)
+
+    candidate_ids.each_with_object({}) do |pid, h|
+      approved = approved_by_project[pid].to_i
+      total = total_by_project[pid].to_i
+      user_share = user_by_project[pid].to_i
+      h[pid] = total.positive? ? (approved * user_share) / total : 0
+    end
+  end
+
+  # Admin-only variant of batch_user_approved_seconds that uses the *internal* approved
+  # total per project — approved_public_seconds + DR.hours_adjustment + BR.hours_adjustment.
+  # Same proportional split as the public version, so per-user sums equal each project's
+  # internal-approved total. Used by the admin hours-stats dashboard's "build_approved" mode.
+  def self.batch_user_internal_approved_seconds(project_ids, user)
+    return {} if project_ids.empty? || user.nil?
+
+    internal_by_project = Ship.where(status: :approved)
+      .joins(:project)
+      .left_joins(:design_review, :build_review)
+      .where(projects: { id: project_ids, discarded_at: nil })
+      .group("projects.id")
+      .sum(Arel.sql("COALESCE(ships.approved_public_seconds, 0) + COALESCE(design_reviews.hours_adjustment, 0) + COALESCE(build_reviews.hours_adjustment, 0)"))
+    return {} if internal_by_project.empty?
+
+    candidate_ids = internal_by_project.keys
+    total_by_project = batch_time_logged(candidate_ids)
+    user_by_project = batch_user_logged_seconds(candidate_ids, user)
+
+    candidate_ids.each_with_object({}) do |pid, h|
+      internal = internal_by_project[pid].to_i
+      total = total_by_project[pid].to_i
+      user_share = user_by_project[pid].to_i
+      h[pid] = total.positive? ? (internal * user_share) / total : 0
+    end
+  end
+
+  # Set of project IDs (from the given list) where the user is either the kept owner or a
+  # kept collaborator. Used to gate manual_seconds attribution: a user only gets a share of
+  # manual_seconds on projects they actually belong to.
+  def self.project_ids_user_is_member_of(project_ids, user)
+    owners = where(id: project_ids, user_id: user.id).pluck(:id)
+    collabs = Collaborator.kept
+      .where(user: user, collaboratable_type: "Project", collaboratable_id: project_ids)
+      .pluck(:collaboratable_id)
+    (owners + collabs).to_set
+  end
+
   # Batch version: returns { project_id => seconds } for a set of project IDs in a single query
   def self.batch_time_logged(project_ids)
     return {} if project_ids.empty?

@@ -24,18 +24,29 @@ class StreakService
     check_goal_completion(user)
   end
 
+  # Seconds attributed to the user across every kept journal entry created in their local
+  # date range — covers entries they authored AND entries on which they're a kept journal
+  # collaborator. Each journal's duration is split among its attribution set so the user's
+  # share matches the rest of the hours model. The streak threshold check on this value
+  # must therefore reflect the user's *credited* time, not raw recording duration.
+  #
+  # Not retroactive: historical StreakDay rows are not recomputed. Only `record_activity`
+  # and `repair_frozen_day` (forward-looking entry points) call this, so days already
+  # marked active/missed before this change keep their original verdict.
   def self.daily_seconds_logged(user, date)
     tz = ActiveSupport::TimeZone[user.timezone] || ActiveSupport::TimeZone["UTC"]
     day_start = tz.parse(date.to_s).beginning_of_day
     day_end = day_start.end_of_day
 
-    journal_ids = JournalEntry.kept.where(user: user, created_at: day_start..day_end).select(:id)
+    authored = JournalEntry.kept.where(user: user, created_at: day_start..day_end).pluck(:id)
+    via_collab = JournalEntry.kept
+      .where(created_at: day_start..day_end)
+      .where(id: Collaborator.kept.where(user: user, collaboratable_type: "JournalEntry").select(:collaboratable_id))
+      .pluck(:id)
+    je_ids = (authored + via_collab).uniq
+    return 0 if je_ids.empty?
 
-    lapse = LapseTimelapse.joins(:recording).where(recordings: { journal_entry_id: journal_ids }).sum(:duration).to_i
-    youtube = YouTubeVideo.joins(:recording).where(recordings: { journal_entry_id: journal_ids }).sum(Arel.sql("duration_seconds * stretch_multiplier")).to_i
-    lookout = LookoutTimelapse.joins(:recording).where(recordings: { journal_entry_id: journal_ids }).sum(:duration).to_i
-
-    lapse + youtube + lookout
+    JournalEntry.batch_user_attributed_seconds(je_ids, user).values.sum
   end
 
   def self.reconcile_missed_days(user)
