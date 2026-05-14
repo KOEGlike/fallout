@@ -261,7 +261,8 @@ export default function PathIndex() {
   const [pathIntro, setPathIntro] = useState(() =>
     initialPathEntry.shouldAnimateIntro ? buildPathIntroState(true, initialPathEntry.introMode) : buildPathIntroState(),
   )
-  const activePathNodeIndex = has_projects ? Math.min(journal_entry_count + 1, 99) : 0
+  const pathNodeCount = Math.max(50, 50 + journal_entry_count)
+  const activePathNodeIndex = has_projects ? Math.min(journal_entry_count + 1, pathNodeCount - 1) : 0
 
   // Detect first project creation: has_projects flips false → true while modal is closing
   useEffect(() => {
@@ -284,7 +285,7 @@ export default function PathIndex() {
 
   const pathNodes = useMemo(
     () =>
-      Array.from({ length: 100 }, (_, i) => (
+      Array.from({ length: pathNodeCount }, (_, i) => (
         <PathNode
           key={i}
           index={i}
@@ -296,7 +297,7 @@ export default function PathIndex() {
           dialogOverlayOpen={isDialogOverlayOpen}
         />
       )),
-    [has_projects, journal_entry_count, critter_variants, pathIntro.active, readDocsNudge, isDialogOverlayOpen],
+    [pathNodeCount, has_projects, journal_entry_count, critter_variants, pathIntro.active, readDocsNudge, isDialogOverlayOpen],
   )
 
   useEffect(() => {
