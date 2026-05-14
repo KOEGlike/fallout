@@ -7,6 +7,38 @@
 # On match, the job books a ProjectFundingTopup with `counts_toward_funding: false`
 # and links it here via `project_funding_topup_id`. The card is topped up via HCB
 # without consuming any of the user's koi-funded entitlement.
+# == Schema Information
+#
+# Table name: hcb_donation_requests
+#
+#  id                       :bigint           not null, primary key
+#  amount_cents             :integer          not null
+#  discarded_at             :datetime
+#  donated_at               :datetime
+#  last_seen_at             :datetime
+#  matched_at               :datetime
+#  refunded_at              :datetime
+#  token                    :string           not null
+#  created_at               :datetime         not null
+#  updated_at               :datetime         not null
+#  hcb_donation_id          :string
+#  project_funding_topup_id :bigint
+#  user_id                  :bigint           not null
+#
+# Indexes
+#
+#  index_hcb_donation_requests_on_discarded_at              (discarded_at)
+#  index_hcb_donation_requests_on_hcb_donation_id           (hcb_donation_id) UNIQUE WHERE (hcb_donation_id IS NOT NULL)
+#  index_hcb_donation_requests_on_matched_at                (matched_at)
+#  index_hcb_donation_requests_on_project_funding_topup_id  (project_funding_topup_id)
+#  index_hcb_donation_requests_on_token                     (token) UNIQUE
+#  index_hcb_donation_requests_on_user_id                   (user_id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (project_funding_topup_id => project_funding_topups.id)
+#  fk_rails_...  (user_id => users.id)
+#
 class HcbDonationRequest < ApplicationRecord
   include Discardable
 
