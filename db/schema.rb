@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_155903) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_15_220949) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -876,6 +876,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_155903) do
     t.index ["user_id"], name: "index_streak_goals_on_user_id_kept", unique: true, where: "(discarded_at IS NULL)"
   end
 
+  create_table "ticket_claims", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "state", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["user_id"], name: "index_ticket_claims_on_user_id", unique: true
+  end
+
   create_table "time_audit_reviews", force: :cascade do |t|
     t.jsonb "annotations"
     t.integer "approved_public_seconds"
@@ -925,7 +933,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_155903) do
     t.integer "streak_freezes", default: 1, null: false
     t.boolean "streak_in_app_notifications", default: true, null: false
     t.boolean "streak_slack_notifications", default: true, null: false
-    t.string "summit_rsvp"
     t.string "timezone", null: false
     t.string "type"
     t.datetime "updated_at", null: false
@@ -1047,6 +1054,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_155903) do
   add_foreign_key "streak_days", "users"
   add_foreign_key "streak_events", "users"
   add_foreign_key "streak_goals", "users"
+  add_foreign_key "ticket_claims", "users"
   add_foreign_key "time_audit_reviews", "ships"
   add_foreign_key "time_audit_reviews", "users", column: "reviewer_id"
 end

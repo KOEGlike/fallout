@@ -8,6 +8,8 @@ class ShopItemsController < ApplicationController
       koi_balance: current_user.koi,
       gold_balance: current_user.gold,
       user_hours: (current_user.total_time_logged_seconds / 3600.0).floor,
+      approved_hours: (current_user.approved_time_logged_seconds / 3600.0).round(1),
+      ticket_claim_state: current_user.ticket_claim&.state,
       is_modal: request.headers["X-InertiaUI-Modal"].present?,
       user_id: current_user.id,
       pending_dialog: shop_pending_dialog

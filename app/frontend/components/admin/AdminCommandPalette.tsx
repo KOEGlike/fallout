@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   BriefcaseBusiness,
   Activity,
+  Ticket,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -80,6 +81,13 @@ const ALL_NAV: NavEntry[] = [
     label: 'Shop Orders',
     href: '/admin/shop_orders',
     icon: ShoppingCart,
+    requirePermission: 'is_admin',
+  },
+  {
+    group: 'Shop',
+    label: 'Ticket Claims',
+    href: '/admin/ticket_claims',
+    icon: Ticket,
     requirePermission: 'is_admin',
   },
   {

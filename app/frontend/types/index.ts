@@ -18,7 +18,7 @@ export type FlashData = Record<string, string>
 export interface Features {
   collaborators?: boolean
   shop?: boolean
-  grant_fulfillment?: boolean
+  grant_fulfillment: true
 }
 
 export type IdentityGateState = 'unverified' | 'pending' | 'verified_no_address' | 'verified_with_address'

@@ -59,9 +59,13 @@ node_modules
 docs/plans
 # Ignore key files for decrypting credentials and more.
 /config/*.key
+/config/credentials/development.key
+/config/credentials/development.yml.enc
 
 .idea/
 *.iml
 
 # Meilisearch local data
 /data.ms/
+
+/tools/

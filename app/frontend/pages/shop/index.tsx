@@ -30,6 +30,8 @@ export default function ShopIndex({
   koi_balance,
   gold_balance,
   user_hours,
+  approved_hours,
+  ticket_claim_state,
   user_id,
   pending_dialog,
 }: {
@@ -38,12 +40,13 @@ export default function ShopIndex({
   koi_balance: number
   gold_balance: number
   user_hours: number
+  approved_hours: number
+  ticket_claim_state: 'pending' | 'approved' | 'rejected' | null
   user_id: number
   pending_dialog: string | null
 }) {
-  const { identity_gate, features } = usePage<SharedProps>().props
+  const { identity_gate } = usePage<SharedProps>().props
   const identityBlocked = identity_gate !== null && identity_gate.state !== 'verified_with_address'
-  const grantFulfillmentEnabled = features?.grant_fulfillment === true
 
   const modalRef = useRef<{ close: () => void }>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -170,12 +173,11 @@ export default function ShopIndex({
     }, 300)
   }
 
-  // When grant_fulfillment is on, hours-currency items (e.g. the Fallout ticket) are
-  // pulled into a special 2-column row at the top alongside the project funding tile.
-  // When the flag is off, we render the original shop layout — all shop_items in the
-  // single grid, no special row.
-  const specialHoursItems = grantFulfillmentEnabled ? shop_items.filter((i) => i.currency === 'hours') : []
-  const regularItems = grantFulfillmentEnabled ? shop_items.filter((i) => i.currency !== 'hours') : shop_items
+  // Hours-currency items (e.g. the Fallout ticket) are always pulled into the special
+  // top row regardless of the grant_fulfillment flag — they have their own CLAIM flow.
+  // When grant_fulfillment is on, the project funding tile also appears in that row.
+  const specialHoursItems = shop_items.filter((i) => i.currency === 'hours')
+  const regularItems = shop_items.filter((i) => i.currency !== 'hours')
 
   const sortedItems = [...regularItems].sort((a, b) => {
     const aIdx = sortedPinnedOrder.indexOf(a.id)
@@ -220,37 +222,35 @@ export default function ShopIndex({
         </div>
         {/* Special row: project funding + hours-currency items (e.g. Fallout ticket).
             These are distinct from regular shop items — no pin star, always at the top,
-            always shown in a wider 2-column layout so the progress bars and icons breathe.
-            Project funding is gated by the `grant_fulfillment` Flipper flag; if no special
-            tiles render at all, skip the row entirely so the grid doesn't get an empty header. */}
-        {grantFulfillmentEnabled && (
-          <ul className="mt-6 w-full grid gap-4 grid-cols-1 sm:grid-cols-2 auto-rows-[380px]">
-            {/* Hours-currency items (e.g. Ticket to Fallout) come first — they're the
+            always shown in a wider 2-column layout so the progress bars and icons breathe. */}
+        <ul className="mt-6 w-full grid gap-4 grid-cols-1 sm:grid-cols-2 auto-rows-[380px]">
+          {/* Hours-currency items (e.g. Ticket to Fallout) come first — they're the
                 marquee event prize and should sit visually leftmost. */}
-            {specialHoursItems.map((item) => (
-              <li
-                key={item.id}
-                className="border-2 border-dark-brown bg-brown/60 relative h-[380px] w-full rounded-md text-dark-brown p-4 flex flex-col gap-2 hover:-translate-y-1 hover:shadow-sm hover:z-[1] transition-all duration-300 group"
-              >
-                <span className="text-2xl font-bold leading-6 text-dark-brown pb-1 break-words min-w-0 line-clamp-2">
-                  {item.name}
-                </span>
-                <div className="w-full h-50 p-4 rounded-sm border-3 border-dark-brown bg-beige relative overflow-hidden flex items-center justify-center">
-                  {item.image_url && (
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      loading="lazy"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                      className="group-hover:scale-105 transition-transform duration-300 w-full h-full object-contain"
-                    />
-                  )}
-                </div>
-                <div className="py-1 flex items-start justify-between gap-4">
-                  <span className="leading-tight text-base min-w-0 break-words line-clamp-3">{item.description}</span>
-                  <span className="text-2xl font-bold text-dark-brown shrink-0">{item.price}h</span>
-                </div>
-                <div className="mt-auto group/hours relative">
+          {specialHoursItems.map((item) => (
+            <li
+              key={item.id}
+              className="border-2 border-dark-brown bg-brown/60 relative h-[380px] w-full rounded-md text-dark-brown p-4 flex flex-col gap-2 hover:-translate-y-1 hover:shadow-sm hover:z-[1] transition-all duration-300 group"
+            >
+              <span className="text-2xl font-bold leading-6 text-dark-brown pb-1 break-words min-w-0 line-clamp-2">
+                {item.name}
+              </span>
+              <div className="w-full h-50 p-4 rounded-sm border-3 border-dark-brown bg-beige relative overflow-hidden flex items-center justify-center">
+                {item.image_url && (
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    loading="lazy"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                    className="group-hover:scale-105 transition-transform duration-300 w-full h-full object-contain"
+                  />
+                )}
+              </div>
+              <div className="py-1 flex items-start justify-between gap-4">
+                <span className="leading-tight text-base min-w-0 break-words line-clamp-3">{item.description}</span>
+                <span className="text-2xl font-bold text-dark-brown shrink-0">{item.price}h</span>
+              </div>
+              <div className="mt-auto flex flex-col gap-2">
+                {approved_hours < item.price && (
                   <div className="w-full h-10 bg-brown border-2 border-dark-brown rounded-sm overflow-hidden relative">
                     <div
                       className="h-full bg-dark-brown transition-all duration-500"
@@ -260,52 +260,71 @@ export default function ShopIndex({
                       {user_hours}h / {item.price}h
                     </span>
                   </div>
-                  <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-dark-brown px-2 py-1 text-xs text-light-brown opacity-0 transition-opacity group-hover/hours:opacity-100">
-                    Claim when hours are approved
-                  </span>
-                </div>
-              </li>
-            ))}
-
-            {grantFulfillmentEnabled && (
-              <li className="border-2 border-dark-brown bg-brown/60 relative h-[380px] w-full rounded-md text-dark-brown p-4 flex flex-col gap-2 hover:-translate-y-1 hover:shadow-sm hover:z-[1] transition-all duration-300 group">
-                <span className="text-2xl font-bold leading-6 text-dark-brown pb-1 break-words min-w-0 line-clamp-2">
-                  Project funding
-                </span>
-                <div className="w-full h-50 p-4 rounded-sm border-3 border-dark-brown bg-beige relative overflow-hidden flex items-center justify-center">
-                  <img
-                    src="/koi-gold.webp"
-                    alt="koi & gold coin"
-                    className="group-hover:scale-105 transition-transform duration-300 w-full h-full object-contain"
-                  />
-                </div>
-                <div className="py-1 flex items-start justify-between gap-4">
-                  <span className="leading-tight text-base min-w-0 break-words line-clamp-3">
-                    Convert koi for funding for your project as a HCB grant card.
-                  </span>
-                  {/* No fixed price — user picks the amount on the next page */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <img src="/koi-gold.webp" alt="koi or gold" className="inline w-11 h-auto object-contain" />
-                  </div>
-                </div>
-                {identityBlocked ? (
-                  <div className="mt-auto w-full h-10 bg-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center cursor-not-allowed text-base px-2 text-center">
-                    {identity_gate?.state === 'verified_no_address'
-                      ? 'Add address to request'
-                      : 'Verify identity to request'}
-                  </div>
-                ) : (
-                  <Link
-                    href="/project_grants/new"
-                    className="mt-auto w-full h-10 bg-dark-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center text-2xl active:scale-94 transition-transform"
-                  >
-                    Request
-                  </Link>
                 )}
-              </li>
+                {approved_hours >= item.price ? (
+                  ticket_claim_state === 'pending' ? (
+                    <div className="w-full h-10 bg-brown border-2 border-dark-brown rounded-sm text-dark-brown font-bold flex items-center justify-center text-sm cursor-default select-none">
+                      Claim submitted — pending review
+                    </div>
+                  ) : ticket_claim_state === 'approved' ? (
+                    <div className="w-full h-10 bg-dark-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center text-base cursor-default select-none">
+                      Ticket approved!
+                    </div>
+                  ) : identityBlocked ? (
+                    <div className="w-full h-10 bg-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center cursor-not-allowed text-base px-2 text-center select-none">
+                      {identity_gate?.state === 'verified_no_address'
+                        ? 'Add address to claim'
+                        : 'Verify identity to claim'}
+                    </div>
+                  ) : (
+                    <Link
+                      href="/claim-ticket"
+                      className="w-full h-10 bg-dark-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center text-2xl active:scale-94 transition-transform tracking-widest"
+                    >
+                      CLAIM
+                    </Link>
+                  )
+                ) : null}
+              </div>
+            </li>
+          ))}
+
+          <li className="border-2 border-dark-brown bg-brown/60 relative h-[380px] w-full rounded-md text-dark-brown p-4 flex flex-col gap-2 hover:-translate-y-1 hover:shadow-sm hover:z-[1] transition-all duration-300 group">
+            <span className="text-2xl font-bold leading-6 text-dark-brown pb-1 break-words min-w-0 line-clamp-2">
+              Project funding
+            </span>
+            <div className="w-full h-50 p-4 rounded-sm border-3 border-dark-brown bg-beige relative overflow-hidden flex items-center justify-center">
+              <img
+                src="/koi-gold.webp"
+                alt="koi & gold coin"
+                className="group-hover:scale-105 transition-transform duration-300 w-full h-full object-contain"
+              />
+            </div>
+            <div className="py-1 flex items-start justify-between gap-4">
+              <span className="leading-tight text-base min-w-0 break-words line-clamp-3">
+                Convert koi for funding for your project as a HCB grant card.
+              </span>
+              {/* No fixed price — user picks the amount on the next page */}
+              <div className="flex items-center gap-1 shrink-0">
+                <img src="/koi-gold.webp" alt="koi or gold" className="inline w-11 h-auto object-contain" />
+              </div>
+            </div>
+            {identityBlocked ? (
+              <div className="mt-auto w-full h-10 bg-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center cursor-not-allowed text-base px-2 text-center">
+                {identity_gate?.state === 'verified_no_address'
+                  ? 'Add address to request'
+                  : 'Verify identity to request'}
+              </div>
+            ) : (
+              <Link
+                href="/project_grants/new"
+                className="mt-auto w-full h-10 bg-dark-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center text-2xl active:scale-94 transition-transform"
+              >
+                Request
+              </Link>
             )}
-          </ul>
-        )}
+          </li>
+        </ul>
 
         <ul
           ref={listRef}

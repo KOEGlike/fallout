@@ -1,9 +1,8 @@
 class ProjectGrantOrderPolicy < ApplicationPolicy
-  # User-facing actions: any full-account user can request a grant for themselves,
-  # gated by the grant_fulfillment Flipper flag.
-  def index? = flag_enabled? && full_user?
-  def new? = flag_enabled? && full_user?
-  def create? = flag_enabled? && full_user? && record.user_id == user&.id
+  # User-facing actions: any full-account user can request a grant for themselves.
+  def index? = full_user?
+  def new? = full_user?
+  def create? = full_user? && record.user_id == user&.id
 
   # Admins (without hcb) are view-only for every money-adjacent surface: they can
   # browse orders + settings + warnings but cannot change state, reconcile, fulfill,
@@ -17,10 +16,10 @@ class ProjectGrantOrderPolicy < ApplicationPolicy
   def refund? = hcb?
 
   class Scope < ApplicationPolicy::Scope
-    # Admins see everything; full users (with flag on) see only their own. Others get nothing.
+    # Admins see everything; full users see only their own. Others get nothing.
     def resolve
       return scope.all if user&.admin?
-      return scope.none unless user.present? && !user.trial? && Flipper.enabled?(:grant_fulfillment, user)
+      return scope.none unless user.present? && !user.trial?
 
       scope.where(user_id: user.id)
     end
@@ -30,10 +29,6 @@ class ProjectGrantOrderPolicy < ApplicationPolicy
 
   def full_user?
     user.present? && !user.trial?
-  end
-
-  def flag_enabled?
-    user.present? && Flipper.enabled?(:grant_fulfillment, user)
   end
 
   def hcb?

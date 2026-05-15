@@ -28,6 +28,7 @@ import {
   ReceiptText,
   Megaphone,
   BarChart2,
+  Ticket,
 } from 'lucide-react'
 
 interface AdminStats {
@@ -132,6 +133,13 @@ function buildNavSections(): { items: NavItem[] }[] {
           label: 'Shop Orders',
           href: '/admin/shop_orders',
           icon: ShoppingCart,
+          statKey: null,
+          requirePermission: 'is_admin',
+        },
+        {
+          label: 'Tickets',
+          href: '/admin/ticket_claims',
+          icon: Ticket,
           statKey: null,
           requirePermission: 'is_admin',
         },

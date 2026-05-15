@@ -358,6 +358,9 @@ Rails.application.routes.draw do
       end
       resources :shop_items, only: [ :index, :create, :update, :destroy ] # Admin shop item management
       resources :shop_orders, only: [ :index, :show, :update ] # Admin order management
+      resources :ticket_claims, only: [ :index ] do # Admin event ticket claim review
+        member { patch :approve }
+      end
       resources :koi_transactions, only: [ :index, :new, :create ] # Admin koi adjustments
       resources :you_tube_videos, only: [] do
         member do
@@ -443,7 +446,7 @@ Rails.application.routes.draw do
   # Campaign-based dialog system — marks a one-time dialog as seen via plain fetch (not Inertia)
   post "dialog_campaigns/:key/mark_seen", to: "dialog_campaigns#mark_seen", as: :mark_seen_dialog_campaign
 
-  # Summit RSVP — saved from the 60-hours soup dialog
+  # Event RSVP — saved from the 60-hours soup dialog
   patch "profile/summit_rsvp", to: "profiles#summit_rsvp", as: :summit_rsvp
 
   resources :critters, only: [ :show, :update ], path: "spin" # Gacha spin reveal page
@@ -488,6 +491,10 @@ Rails.application.routes.draw do
   resources :lookout_sessions, only: %i[new] do
     get :record, on: :collection # Token-based recording page: /lookout_sessions/record?token=...
   end
+
+  # Event ticket claim — available to users with >= 60 approved hours
+  get "claim-ticket" => "ticket_claims#new", as: :claim_ticket
+  post "claim-ticket" => "ticket_claims#create"
 
   resources :shop_items, path: "shop", only: [ :index, :show ] do # Koi shop (admin CRUD via /admin/shop_items)
     resources :shop_orders, only: [ :new, :create, :show ], path: "orders" # Purchase flow

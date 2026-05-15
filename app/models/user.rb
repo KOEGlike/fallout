@@ -29,7 +29,6 @@
 #  streak_freezes              :integer          default(1), not null
 #  streak_in_app_notifications :boolean          default(TRUE), not null
 #  streak_slack_notifications  :boolean          default(TRUE), not null
-#  summit_rsvp                 :string
 #  timezone                    :string           not null
 #  type                        :string
 #  verification_status         :string
@@ -108,6 +107,7 @@ class User < ApplicationRecord
   has_many :hcb_grant_cards, dependent: :destroy
   has_one :active_hcb_grant_card, -> { where(status: "active") }, class_name: "HcbGrantCard"
   has_many :project_grant_orders, dependent: :restrict_with_error
+  has_one :ticket_claim, dependent: :destroy
   has_many :project_funding_topups, dependent: :restrict_with_error
   has_many :reviewer_notes
   has_many :project_flags
