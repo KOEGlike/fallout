@@ -5,6 +5,7 @@ import { useReviewHeartbeat } from '@/hooks/useReviewHeartbeat'
 import ReviewLayout from '@/layouts/ReviewLayout'
 import HoursDisplay from '@/components/admin/HoursDisplay'
 import { WaitingLabel } from '@/components/admin/WaitingLabel'
+import { ReviewStatusBadge } from '@/components/admin/ReviewStatusBadge'
 import { Badge } from '@/components/admin/ui/badge'
 import { Button } from '@/components/admin/ui/button'
 import { Separator } from '@/components/admin/ui/separator'
@@ -861,18 +862,7 @@ export default function RequirementsChecksShow({
                 summary={
                   <span className="flex items-center gap-1">
                     {[...previous_reviews].reverse().map((r) => (
-                      <span
-                        key={r.ship_id}
-                        className={`shrink-0 text-xs px-1.5 py-0.5 rounded border font-medium ${
-                          r.status === 'approved'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'
-                            : r.status === 'returned'
-                              ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
-                              : 'bg-red-50 text-red-600 border-red-300 dark:bg-red-950 dark:text-red-400 dark:border-red-800'
-                        }`}
-                      >
-                        {r.status}
-                      </span>
+                      <ReviewStatusBadge key={r.ship_id} status={r.status} className="shrink-0" />
                     ))}
                   </span>
                 }
@@ -881,17 +871,7 @@ export default function RequirementsChecksShow({
                   {previous_reviews.map((r) => (
                     <div key={r.ship_id} className="p-3 space-y-1.5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span
-                          className={`text-xs px-1.5 py-0.5 rounded border font-medium ${
-                            r.status === 'approved'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'
-                              : r.status === 'returned'
-                                ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
-                                : 'bg-red-50 text-red-600 border-red-300 dark:bg-red-950 dark:text-red-400 dark:border-red-800'
-                          }`}
-                        >
-                          {r.status}
-                        </span>
+                        <ReviewStatusBadge status={r.status} />
                         <span className="text-xs text-muted-foreground shrink-0">
                           {r.reviewer_display_name && `${r.reviewer_display_name} · `}{r.reviewed_at}
                         </span>
