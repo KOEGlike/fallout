@@ -581,7 +581,7 @@ function ProfileShow({
               className="relative rounded-lg grow aspect-square border-2 border-dark-brown shrink-0 w-full  sm:h-80"
               style={
                 selectedBg
-                  ? { backgroundImage: `url(${selectedBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  ? { backgroundImage: `url('${selectedBg}')`, backgroundSize: 'cover', backgroundPosition: 'center' }
                   : { backgroundColor: 'white' }
               }
             >
