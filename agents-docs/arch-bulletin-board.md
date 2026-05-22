@@ -145,7 +145,7 @@ Three user-facing affordances let visitors save events to external calendars; al
 
 Shared link helpers live in `app/frontend/lib/bulletinCalendarLinks.ts` (`googleCalendarUrl`, `outlookCalendarUrl`, `icsDownloadUrl`, `subscriptionUrls`).
 
-Backend ICS rendering lives in `app/services/bulletin_event_ics_generator.rb` (uses the `icalendar` gem). Times are emitted in UTC (`DTSTART;TZID=UTC:...`). Each `VEVENT` carries a stable UID (`bulletin-event-<id>@<host>`) so calendar apps dedupe on edit instead of creating ghost copies. The feed variant adds `X-WR-CALNAME`, `X-WR-CALDESC`, and `REFRESH-INTERVAL;VALUE=DURATION:PT1H`.
+Backend ICS rendering lives in `app/services/bulletin_event_ics_generator.rb` (uses the `icalendar` gem). Times are emitted in UTC (`DTSTART;TZID=UTC:...`). Each `VEVENT` carries a stable UID (`bulletin-event-<id>@<host>`) so calendar apps dedupe on edit instead of creating ghost copies. The feed variant adds `X-WR-CALNAME`, `X-WR-CALDESC`, `X-PUBLISHED-TTL:PT5M`, and `REFRESH-INTERVAL;VALUE=DURATION:PT5M`.
 
 ---
 
