@@ -18,9 +18,14 @@ module Reviewable
 
     scope :actively_claimed, -> { where("claim_expires_at > ?", Time.current) }
     scope :available_for, ->(user) {
+      # Use Arel so column refs are auto-qualified — callers may join :ship,
+      # which also has reviewer_id/claim_expires_at and would otherwise collide.
+      claim_expires_at = arel_table[:claim_expires_at]
+      reviewer_id = arel_table[:reviewer_id]
       pending.where(
-        "claim_expires_at IS NULL OR claim_expires_at <= :now OR reviewer_id = :uid",
-        now: Time.current, uid: user.id
+        claim_expires_at.eq(nil)
+          .or(claim_expires_at.lteq(Time.current))
+          .or(reviewer_id.eq(user.id))
       ).where.not(
         ship_id: Ship.where(project_id: ProjectFlag.select(:project_id)).select(:id)
       )
