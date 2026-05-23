@@ -182,6 +182,8 @@ export interface ProjectForm {
   name: string
   description: string
   repo_link: string
+  built_irl: boolean
+  demo_video_link: string
 }
 
 export interface AdminUserRow {
