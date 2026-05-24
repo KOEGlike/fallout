@@ -71,6 +71,7 @@ class StreakService
         user.reload # Freeze count may have changed from previous iteration
         if user.streak_freezes > 0
           use_freeze(user, date, streak_day)
+          check_milestones(user)
           check_goal_completion(user) # Frozen days count toward goal progress
         else
           mark_missed(user, date, streak_day, streak_before_reconciliation)

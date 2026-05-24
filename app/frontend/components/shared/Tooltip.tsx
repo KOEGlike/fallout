@@ -253,7 +253,15 @@ function Arrow({ side }: { side: Side }) {
   )
 }
 
-export function TooltipContent({ children, className }: { children: ReactNode; className?: string }) {
+export function TooltipContent({
+  children,
+  className,
+  forwardClickToTrigger = false,
+}: {
+  children: ReactNode
+  className?: string
+  forwardClickToTrigger?: boolean
+}) {
   const { open, setOpen, triggerRef, side, autoFlip, gap, trackScroll, snapWhenOffscreen, onSnapClick } = useCtx()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<Pos | null>(null)
@@ -364,18 +372,27 @@ export function TooltipContent({ children, className }: { children: ReactNode; c
 
   if (!open) return null
 
+  const isClickable = (isSnapped && onSnapClick) || forwardClickToTrigger
+  const handleClick = () => {
+    if (isSnapped && onSnapClick) {
+      onSnapClick()
+      return
+    }
+    if (forwardClickToTrigger) triggerRef.current?.click()
+  }
+
   return createPortal(
     <div
       ref={ref}
       role="tooltip"
       className={twMerge(
         'fixed z-50 px-3 py-2 text-sm rounded',
-        isSnapped && onSnapClick ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none',
+        isClickable ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none',
         'bg-light-brown border-2 border-dark-brown text-dark-brown shadow-md',
         className,
       )}
       style={pos ? { top: pos.top, left: pos.left } : { visibility: 'hidden', top: 0, left: 0 }}
-      onClick={isSnapped && onSnapClick ? onSnapClick : undefined}
+      onClick={isClickable ? handleClick : undefined}
     >
       {pos && <Arrow side={pos.side} />}
       {children}

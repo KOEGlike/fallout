@@ -185,6 +185,8 @@ export interface ProjectForm {
   name: string
   description: string
   repo_link: string
+  built_irl: boolean
+  demo_video_link: string
 }
 
 export interface AdminUserRow {
@@ -557,6 +559,15 @@ export interface UnifiedInspectData {
   ship: UnifiedInspectShip
   timeline: UnifiedInspectStage[]
   time_audit: UnifiedInspectTimeAudit | null
+}
+
+export interface PreviousReview {
+  ship_id: number
+  status: 'approved' | 'returned' | 'rejected'
+  feedback: string | null
+  internal_reason: string | null
+  reviewer_display_name: string | null
+  reviewed_at: string
 }
 
 export interface SiblingStatuses {

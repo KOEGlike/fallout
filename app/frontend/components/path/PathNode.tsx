@@ -161,7 +161,7 @@ export default function PathNode({
         disabled={dialogOverlayOpen}
       >
         <TooltipTrigger>{content}</TooltipTrigger>
-        <TooltipContent>{tooltipText}</TooltipContent>
+        <TooltipContent forwardClickToTrigger>{tooltipText}</TooltipContent>
       </Tooltip>
     )
   }

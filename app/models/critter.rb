@@ -22,23 +22,13 @@
 #  fk_rails_...  (user_id => users.id)
 #
 class Critter < ApplicationRecord
-  VARIANTS = %w[
-    b2b-sales bloo bush chocolate elk floaty grass gren-frog jellycat
-    matcha milk-tea orange party-cat riptide rosey skeelton smoothie
-    snek sungod the-goat the-red trashcan worm yelo
-  ].freeze
+  ALL_VARIANTS = Dir[Rails.root.join("public/critters/*.webp")]
+    .map { File.basename(_1, ".webp") }
+    .sort
+    .freeze
 
-  SHINY_VARIANTS = %w[
-    shiny-b2b-sales shiny-bandage shiny-bloo shiny-bush-doggy
-    shiny-chocolate-bunny shiny-floaty shiny-gren-frog shiny-grass
-    shiny-matcha shiny-milk-tea shiny-orange shiny-party-cat
-    shiny-rosey-dog shiny-silly-lil-raccoon shiny-skeelton-fish
-    shiny-smol-flying-cat shiny-smol-jellycat shiny-smoothie shiny-snek
-    shiny-suns shiny-the-goat shiny-the-red shiny-wavey-cat shiny-worm
-    shiny-yelo
-  ].freeze
-
-  ALL_VARIANTS = (VARIANTS + SHINY_VARIANTS).freeze
+  SHINY_VARIANTS = ALL_VARIANTS.select { _1.start_with?("shiny-") }.freeze
+  VARIANTS = (ALL_VARIANTS - SHINY_VARIANTS).freeze
   SHINY_CHANCE = 0.05
 
   include Broadcastable
@@ -63,7 +53,8 @@ class Critter < ApplicationRecord
   end
 
   def audio_path
-    "/sfx/spin/#{variant}.mp3"
+    specific = Rails.public_path.join("sfx/spin/#{variant}.mp3")
+    specific.exist? ? "/sfx/spin/#{variant}.mp3" : "/sfx/spin/default.mp3"
   end
 
   def mark_spun!
