@@ -119,6 +119,13 @@ class ProfessorEnrollmentsControllerTest < ActionController::TestCase
     assert_response :forbidden
   end
 
+  test "create redirects ineligible non-modal user with alert" do
+    @user.update_columns(slack_id: nil)
+    post :create
+    assert_redirected_to bulletin_board_path
+    assert_match(/full Hack Club account with a linked Slack/, flash[:alert])
+  end
+
   test "create redirects non-modal success to bulletin board with notice" do
     @request.headers["Referer"] = "http://test.host/path"
     with_stubbed(ProfessorService, :manual_add) { |slack_id:| true }

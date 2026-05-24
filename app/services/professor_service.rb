@@ -28,8 +28,13 @@ module ProfessorService
     return true if response.success?
 
     # Redact the secret before reporting in case the Professor API echoes the request body in
-    # its error response — we never want PROFESSOR_API_SECRET in Sentry breadcrumbs.
-    sanitized_body = response.body.to_s.gsub(secret, "[REDACTED]").truncate(500)
+    # its error response — we never want PROFESSOR_API_SECRET in Sentry breadcrumbs. Cap the
+    # body before the gsub to bound work on large upstream responses; include a secret-length
+    # buffer so a secret that straddles the truncation boundary still matches and gets redacted.
+    sanitized_body = response.body.to_s
+      .truncate(500 + secret.length, omission: "")
+      .gsub(secret, "[REDACTED]")
+      .truncate(500)
     ErrorReporter.capture_message("Professor manual-add failed", level: :warning, contexts: {
       professor: { status: response.status, body: sanitized_body }
     })

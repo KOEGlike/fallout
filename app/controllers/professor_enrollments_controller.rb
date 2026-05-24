@@ -46,7 +46,10 @@ class ProfessorEnrollmentsController < ApplicationController
     # Defense in depth — UI hides the button for ineligible users, but the endpoint must also
     # refuse trial users / users without a slack_id (the Professor API needs the Slack ID).
     unless current_user.professor_enrollment_eligible?
-      head :forbidden
+      return head :forbidden if modal_request?
+
+      redirect_to bulletin_board_path,
+        alert: "You need a full Hack Club account with a linked Slack to sign up for a mentor."
       return
     end
 
