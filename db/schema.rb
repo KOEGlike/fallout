@@ -930,6 +930,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_23_234717) do
     t.string "last_name"
     t.boolean "onboarded", default: false, null: false
     t.string "pending_lookout_tokens", default: [], null: false, array: true
+    t.datetime "professor_enrolled_at"
     t.string "pronouns"
     t.string "roles", default: [], null: false, array: true
     t.string "slack_id"
