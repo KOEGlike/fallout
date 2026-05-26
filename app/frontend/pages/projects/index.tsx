@@ -130,8 +130,28 @@ export default function ProjectsIndex({
                     />
                   ) : (
                     <ImagePlaceholder
-                      text="No cover yet, upload one!"
+                      text="No cover yet"
                       className="aspect-video bg-light-brown rounded w-full"
+                      helpTooltip={
+                        <div className="text-xs leading-snug space-y-1">
+                          <p>
+                            <span className="font-semibold">Your repo?</span> Add a{' '}
+                            <a
+                              href="/docs/requirements/fallout-zine"
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="underline hover:text-brown"
+                            >
+                              zine.png
+                            </a>{' '}
+                            and we'll use it as your cover.
+                          </p>
+                          <p>
+                            <span className="font-semibold">Your journal?</span> Attach an image to any entry.
+                          </p>
+                        </div>
+                      }
                     />
                   )}
                   <div className="pt-3 pb-2 px-2">

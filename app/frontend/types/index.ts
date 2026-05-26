@@ -136,6 +136,7 @@ export interface ProjectDetail {
   time_logged: number
   user_time_logged: number | null
   journal_entries_count: number
+  unified_thumbnail_url: string | null
 }
 
 export interface JournalEntryCard {

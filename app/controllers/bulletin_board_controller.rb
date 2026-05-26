@@ -161,6 +161,7 @@ class BulletinBoardController < ApplicationController
       projects = scope.where(id: page_ids)
                       .order(Arel.sql("array_position(ARRAY[#{page_ids.join(',')}]::bigint[], projects.id)"))
                       .preload(:user)
+                      .preload(unified_thumbnail_attachment: :blob)
                       .to_a
       preload_project_explore_context(projects)
 
@@ -174,7 +175,7 @@ class BulletinBoardController < ApplicationController
     scope = order_projects_for_explore(scope, sort)
     scope = apply_project_cursor(scope, sort: sort, cursor: cursor)
 
-    projects = scope.limit(limit + 1).preload(:user).to_a
+    projects = scope.limit(limit + 1).preload(:user).preload(unified_thumbnail_attachment: :blob).to_a
     has_more = projects.size > limit
     projects = projects.first(limit)
     preload_project_explore_context(projects)
@@ -222,9 +223,10 @@ class BulletinBoardController < ApplicationController
     has_more = entries.size > limit
     entries = entries.first(limit)
     # Preload after slicing so Bullet doesn't flag the discarded +1 row's associations as unused.
+    # Includes project's unified_thumbnail blob so journal_media can fall back to it without N+1.
     ActiveRecord::Associations::Preloader.new(
       records: entries,
-      associations: [ :user, :project, { images_attachments: :blob } ]
+      associations: [ :user, { project: { unified_thumbnail_attachment: :blob } }, { images_attachments: :blob } ]
     ).call
     markdown_docs = rendered_journal_markdown_documents(entries)
 
@@ -397,7 +399,9 @@ class BulletinBoardController < ApplicationController
     latest_entry = @explore_latest_entries[project.id]
     latest_markdown_doc = latest_entry && rendered_user_markdown_document(latest_entry.content.to_s)
     cover_entry = @explore_cover_entries[project.id]
-    cover_url = if cover_entry
+    cover_url = if project.unified_thumbnail.attached?
+      url_for(project.unified_thumbnail)
+    elsif cover_entry
       url_for(cover_entry.images.first)
     elsif latest_entry
       journal_cover_url(latest_entry, latest_markdown_doc)
@@ -447,6 +451,12 @@ class BulletinBoardController < ApplicationController
 
     markdown_image_url = journal_markdown_image_url(markdown_doc)
     return { kind: "image", url: markdown_image_url } if markdown_image_url
+
+    # Fall back to the project's cached zine when the entry itself has no media,
+    # so journal cards on the explore feed visually anchor to the project.
+    if entry.project.unified_thumbnail.attached?
+      return { kind: "image", url: url_for(entry.project.unified_thumbnail) }
+    end
 
     # Recordings are intentionally NOT shown on the public explore feed — they are
     # restricted to the journal author, project owner, and project collaborators only.

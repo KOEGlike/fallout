@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { router } from '@inertiajs/react'
 import { Modal, ModalLink, useModal } from '@inertiaui/modal-react'
-import { BookOpenIcon, ClockIcon, CheckIcon } from '@heroicons/react/16/solid'
+import { BookOpenIcon, ClockIcon, CheckIcon, InformationCircleIcon } from '@heroicons/react/16/solid'
 import { EllipsisHorizontalIcon } from '@heroicons/react/20/solid'
 import { ArrowLeft, Pencil, Trash2, Feather, Loader2, Link2, FileDown } from 'lucide-react'
 import { DateTime } from 'luxon'
@@ -229,6 +229,7 @@ export default function ProjectsShow({
   const [actionMenuOpen, setActionMenuOpen] = useState(false)
   const actionMenuRef = useClickOutside<HTMLDivElement>(() => setActionMenuOpen(false))
   const [journalMenuEntryId, setJournalMenuEntryId] = useState<number | null>(null)
+  const [thumbnailFailed, setThumbnailFailed] = useState(false)
 
   const [switchEntry, setSwitchEntry] = useState<JournalEntryCard | null>(null)
   const [switchProjectId, setSwitchProjectId] = useState<number | ''>('')
@@ -596,6 +597,36 @@ export default function ProjectsShow({
                 <span className="text-brown">({formatTime(project.user_time_logged)} yours)</span>
               )}
             </span>
+            {!project.unified_thumbnail_url && (
+              <span className="flex items-center gap-1">
+                No zine
+                <Tooltip side="top" gap={6} interactive>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="What's a project zine?"
+                      className="cursor-help text-brown hover:text-dark-brown"
+                    >
+                      <InformationCircleIcon className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs leading-snug">
+                      <span className="font-semibold">Your repo?</span> Add a{' '}
+                      <a
+                        href="/docs/requirements/fallout-zine"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-brown"
+                      >
+                        zine.png
+                      </a>{' '}
+                      and it'll show here.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+            )}
           </div>
 
           {can.manage_collaborators && (
@@ -616,6 +647,18 @@ export default function ProjectsShow({
                   {inviting ? 'Sending...' : 'Invite'}
                 </Button>
               </form>
+            </div>
+          )}
+
+          {project.unified_thumbnail_url && !thumbnailFailed && (
+            <div className="mt-6 xl:flex-1 xl:min-h-0 flex items-center justify-center">
+              <img
+                src={project.unified_thumbnail_url}
+                alt={`${project.name} zine`}
+                loading="lazy"
+                onError={() => setThumbnailFailed(true)}
+                className="max-w-full max-h-96 xl:max-h-full object-contain border-2 border-dark-brown rounded shadow-md"
+              />
             </div>
           )}
 
