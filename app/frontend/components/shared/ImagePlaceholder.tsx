@@ -21,8 +21,14 @@ export default function ImagePlaceholder({ text, className, helpTooltip }: Props
               <button
                 type="button"
                 aria-label="More info"
-                onClick={(e) => { e.stopPropagation(); e.preventDefault() }}
-                onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                }}
                 className="cursor-help text-brown hover:text-dark-brown"
               >
                 <InformationCircleIcon className="w-4 h-4" />
