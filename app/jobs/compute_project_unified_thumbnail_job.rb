@@ -98,9 +98,15 @@ class ComputeProjectUnifiedThumbnailJob < ApplicationJob
         unified_thumbnail_etag: nil,
         unified_thumbnail_checked_at: Time.current
       )
-    when :too_large, :error
-      # Can't verify the file right now. Retry — never purge on uncertainty.
-      raise TransientError, "couldn't verify existing zine for project ##{project.id}: #{result[:status]}"
+    when :too_large
+      # Non-transient — the same oversized file will be oversized next hour.
+      # Keep the cached attachment, log, advance checked_at so the project
+      # leaves the stale set instead of churning every run.
+      Rails.logger.warn("ComputeProjectUnifiedThumbnailJob: existing zine source too large for project ##{project.id} (#{result[:size]} bytes), keeping cached attachment")
+      project.update_columns(unified_thumbnail_checked_at: Time.current)
+    when :error
+      # Transient — DNS, 5xx, timeout. Retry, never purge on uncertainty.
+      raise TransientError, "couldn't verify existing zine for project ##{project.id}: #{result[:detail]}"
     end
   end
 

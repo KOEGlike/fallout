@@ -13,7 +13,10 @@ class RefreshStaleUnifiedThumbnailsJob < ApplicationJob
       .limit(PER_RUN_LIMIT)
 
     enqueued = 0
-    scope.find_each do |project|
+    # .each (not .find_each) — find_each silently drops our ORDER BY and would
+    # round-robin by primary key instead of stalest-first. PER_RUN_LIMIT is
+    # small so loading the result set in one shot is fine.
+    scope.each do |project|
       jitter = rand(0..JITTER_WINDOW.to_i).seconds
       ComputeProjectUnifiedThumbnailJob.set(wait: jitter).perform_later(project.id)
       enqueued += 1

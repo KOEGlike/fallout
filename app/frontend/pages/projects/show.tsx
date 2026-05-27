@@ -248,6 +248,10 @@ export default function ProjectsShow({
   }, [project.id, highlight_journal_entry_id, initial_tab])
 
   useEffect(() => {
+    setThumbnailFailed(false)
+  }, [project.unified_thumbnail_url])
+
+  useEffect(() => {
     if (rightTab !== 'journal' || !highlight_journal_entry_id) return
 
     const frame = window.requestAnimationFrame(() => {
@@ -612,14 +616,14 @@ export default function ProjectsShow({
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="text-xs leading-snug">
-                      <span className="font-semibold">Your repo?</span> Add a{' '}
+                      <span className="font-semibold">Your project?</span> Add a{' '}
                       <a
                         href="/docs/requirements/fallout-zine"
                         target="_blank"
                         rel="noreferrer"
                         className="underline hover:text-brown"
                       >
-                        zine.png
+                        zine
                       </a>{' '}
                       and it'll show here.
                     </p>

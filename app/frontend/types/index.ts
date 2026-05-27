@@ -264,6 +264,7 @@ export interface AdminProjectRow {
   last_entry_at: string | null
   is_unlisted: boolean
   is_discarded: boolean
+  is_featured?: boolean
   created_at: string
   collaborators: { id: number; display_name: string; avatar: string | null }[]
 }
@@ -287,6 +288,7 @@ export interface AdminProjectDetail {
   last_entry_at: string | null
   created_at: string
   collaborators: { id: number; display_name: string; avatar: string }[]
+  featured_project_id: number | null
 }
 
 export interface AdminShipRow {

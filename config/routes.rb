@@ -342,6 +342,19 @@ Rails.application.routes.draw do
           patch :end_now
         end
       end
+
+      # Staff-readable index; controller enforces admin-only for mutations.
+      resources :featured_projects, only: [ :index, :create, :destroy ] do
+        collection do
+          get :projects_search
+          patch :reorder
+        end
+
+        member do
+          patch :update_note
+          patch :restore
+        end
+      end
     end
   end
 

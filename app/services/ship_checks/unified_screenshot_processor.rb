@@ -176,12 +176,25 @@ module ShipChecks
     end
 
     def self.perform_conditional_get(uri, if_none_match, follow_redirect:)
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: DOWNLOAD_OPEN_TIMEOUT, read_timeout: DOWNLOAD_READ_TIMEOUT) do |http|
+      # SSRF guard: resolve the host once and pin Net::HTTP to that IP so
+      # DNS rebinding can't swap in a private address between validation
+      # and connection. Caller URLs come from user-controlled README
+      # markdown — never trust the hostname blindly.
+      safe_ip = ShipChecks::SafeHttp.resolve_safe_ip(uri.host)
+      return { status: :error, detail: "host blocked: #{uri.host}" } unless safe_ip
+
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == "https")
+      http.ipaddr = safe_ip
+      http.open_timeout = DOWNLOAD_OPEN_TIMEOUT
+      http.read_timeout = DOWNLOAD_READ_TIMEOUT
+
+      http.start do |conn|
         request = Net::HTTP::Get.new(uri.request_uri)
         request["If-None-Match"] = if_none_match if if_none_match.present?
         request["User-Agent"] = "fallout-unified-thumbnail"
 
-        response = http.request(request)
+        response = conn.request(request)
         code = response.code.to_i
 
         case code
