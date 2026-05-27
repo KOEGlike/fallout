@@ -172,7 +172,12 @@ if Rails.env.development?
         roles: %w[user]
       )
       user.save!
-    elsif user.avatar.blank? || user.avatar.include?("example.com")
+    elsif user.avatar.blank? || begin
+      host = URI.parse(user.avatar).host&.downcase
+      host == "example.com" || host&.end_with?(".example.com")
+    rescue URI::InvalidURIError
+      false
+    end
       user.update!(avatar: PICSUM_AVATAR.call(slug))
     end
 
