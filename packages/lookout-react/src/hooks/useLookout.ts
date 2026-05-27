@@ -46,14 +46,10 @@ export function useLookout(): { state: LookoutState; actions: LookoutActions } {
     capture.isSharing && (session.status === "active" || session.status === "pending"),
   );
 
-  // Holds either a setInterval ID (legacy bucket-mode fallback) or
-  // setTimeout ID (credit-mode self-scheduling chain). Cleared on unmount.
-  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const capturingRef = useRef(false);
   const prevStatusRef = useRef<RecorderStatus>(session.status);
   const intentionalPauseRef = useRef(false);
-  const uploaderRef = useRef(uploader);
-  uploaderRef.current = uploader;
 
   // Sync best tracked seconds to session
   useEffect(() => {
@@ -101,42 +97,14 @@ export function useLookout(): { state: LookoutState; actions: LookoutActions } {
     if (!capture.isSharing || !isActive) return;
 
     capturingRef.current = true;
-    let cancelled = false;
-
-    // Self-scheduling chain. After each capture-upload cycle, look at the
-    // latest `nextExpectedAt` the server returned and schedule the next
-    // fire for that wall-clock moment. If the moment has already passed
-    // (sleep/App Nap/network blip), fire immediately. Falls back to the
-    // configured interval when nextExpectedAt isn't available.
-    const tick = async () => {
-      if (cancelled) return;
-      await captureAndUploadRef.current();
-      if (cancelled) return;
-      const nextIso = uploaderRef.current.getNextExpectedAt();
-      let delayMs: number;
-      if (nextIso) {
-        const parsed = Date.parse(nextIso);
-        delayMs = Number.isFinite(parsed) ? parsed - Date.now() : config.capture.intervalMs;
-      } else {
-        delayMs = config.capture.intervalMs;
-      }
-      // Catch-up-on-miss: if the target is in the past, schedule with 0ms
-      // so we fire ASAP rather than waiting another full interval.
-      if (delayMs < 0) delayMs = 0;
-      intervalRef.current = setTimeout(tick, delayMs);
-    };
-
-    // Kick off the first capture immediately. After it resolves the chain
-    // takes over.
-    tick();
+    captureAndUploadRef.current();
+    const id = setInterval(() => captureAndUploadRef.current(), config.capture.intervalMs);
+    intervalRef.current = id;
 
     return () => {
       capturingRef.current = false;
-      cancelled = true;
-      if (intervalRef.current !== null) {
-        clearTimeout(intervalRef.current);
-        intervalRef.current = null;
-      }
+      clearInterval(id);
+      intervalRef.current = null;
     };
   }, [capture.isSharing, isActive, config.capture.intervalMs]);
 

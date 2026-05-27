@@ -49,17 +49,12 @@ export function captureFrameAsJpeg(
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // Stamp the capture moment in the client clock. The toBlob callback may
-  // resolve milliseconds later — what matters is when the frame was
-  // grabbed, not when the JPEG bytes finished encoding.
-  const capturedAtMs = Date.now();
-
   const toBlobPromise = new Promise<CaptureResult | null>((resolve) => {
     canvas.toBlob(
       (blob) => {
         resolve(
           blob
-            ? { blob, width: canvas.width, height: canvas.height, capturedAtMs }
+            ? { blob, width: canvas.width, height: canvas.height }
             : null,
         );
       },

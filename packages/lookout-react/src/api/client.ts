@@ -15,10 +15,7 @@ import type { TokenProvider } from "../types.js";
 export interface LookoutClient {
   resolveToken(): Promise<string>;
   getSession(): Promise<SessionResponse>;
-  /** `capturedAt` is optional. Sending it on the first request of a new
-   *  session opts the session into credit-mode tracking; subsequent
-   *  requests must keep sending it. Omit for legacy bucket-count behavior. */
-  getUploadUrl(opts?: { capturedAt?: string }): Promise<UploadUrlResponse>;
+  getUploadUrl(): Promise<UploadUrlResponse>;
   confirmScreenshot(body: ConfirmScreenshotRequest): Promise<ConfirmScreenshotResponse>;
   uploadToR2(uploadUrl: string, blob: Blob): Promise<void>;
   pause(): Promise<PauseResponse>;
@@ -97,12 +94,8 @@ export function createLookoutClient(options: CreateClientOptions): LookoutClient
       return fetchJson<SessionResponse>(await sessionUrl());
     },
 
-    async getUploadUrl(opts) {
-      const base = await sessionUrl("/upload-url");
-      const url = opts?.capturedAt
-        ? `${base}?capturedAt=${encodeURIComponent(opts.capturedAt)}`
-        : base;
-      return fetchJson<UploadUrlResponse>(url);
+    async getUploadUrl() {
+      return fetchJson<UploadUrlResponse>(await sessionUrl("/upload-url"));
     },
 
     async confirmScreenshot(body) {
