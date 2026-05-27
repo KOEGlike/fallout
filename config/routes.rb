@@ -55,9 +55,17 @@
 #                               admin_bulletin_event PATCH  /admin/bulletin_events/:id(.:format)                                                          admin/bulletin_events#update
 #                                                    PUT    /admin/bulletin_events/:id(.:format)                                                          admin/bulletin_events#update
 #                                                    DELETE /admin/bulletin_events/:id(.:format)                                                          admin/bulletin_events#destroy
+#            projects_search_admin_featured_projects GET    /admin/featured_projects/projects_search(.:format)                                            admin/featured_projects#projects_search
+#                    reorder_admin_featured_projects PATCH  /admin/featured_projects/reorder(.:format)                                                    admin/featured_projects#reorder
+#                 update_note_admin_featured_project PATCH  /admin/featured_projects/:id/update_note(.:format)                                            admin/featured_projects#update_note
+#                     restore_admin_featured_project PATCH  /admin/featured_projects/:id/restore(.:format)                                                admin/featured_projects#restore
+#                            admin_featured_projects GET    /admin/featured_projects(.:format)                                                            admin/featured_projects#index
+#                                                    POST   /admin/featured_projects(.:format)                                                            admin/featured_projects#create
+#                             admin_featured_project DELETE /admin/featured_projects/:id(.:format)                                                        admin/featured_projects#destroy
 #                               mission_control_jobs        /jobs                                                                                         MissionControl::Jobs::Engine
 #                                                           /flipper                                                                                      Flipper::UI
 #                update_manual_seconds_admin_project PATCH  /admin/projects/:id/update_manual_seconds(.:format)                                           admin/projects#update_manual_seconds
+#                       toggle_burnout_admin_project PATCH  /admin/projects/:id/toggle_burnout(.:format)                                                  admin/projects#toggle_burnout
 #                            update_roles_admin_user PATCH  /admin/users/:id/update_roles(.:format)                                                       admin/users#update_roles
 #                       update_streak_day_admin_user PATCH  /admin/users/:id/update_streak_day(.:format)                                                  admin/users#update_streak_day
 #                     restore_streak_goal_admin_user PATCH  /admin/users/:id/restore_streak_goal(.:format)                                                admin/users#restore_streak_goal
