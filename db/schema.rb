@@ -349,6 +349,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_053922) do
   end
 
   create_table "journal_entries", force: :cascade do |t|
+    t.integer "burnout_duration_seconds"
     t.text "content"
     t.datetime "created_at", null: false
     t.datetime "discarded_at"
