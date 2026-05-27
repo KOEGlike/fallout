@@ -290,7 +290,7 @@ if Rails.env.development?
 
   all_seed_users.each do |attrs|
     next if User.exists?(email: attrs[:email])
-    User.insert_all!([{
+    User.insert_all!([ {
       display_name: attrs[:display_name],
       email:        attrs[:email],
       roles:        attrs[:roles],
@@ -298,7 +298,7 @@ if Rails.env.development?
       timezone:     "UTC",
       created_at:   Time.current,
       updated_at:   Time.current
-    }])
+    } ])
   end
   reviewer_data.each { |a| User.where(email: a[:email]).update_all(roles: a[:roles]) }
   non_reviewer_data.each { |a| User.where(email: a[:email]).update_all(slack_id: a[:slack_id], roles: []) }
@@ -313,27 +313,27 @@ if Rails.env.development?
   # Eve onboarded week 3; Frank onboarded week 17 (very recent). Dave has zero reviews.
   distributions = {
     reviewers[0].id => [ # Alice — experienced, vacation weeks 6-7
-      [0,18],[1,22],[2,20],[3,17],[4,25],[5,19],
-      [8,21],[9,23],[10,18],[11,20],[12,15],[13,22],
-      [14,19],[15,17],[16,20],[17,16],[18,22],[19,18],[20,3]
+      [ 0, 18 ], [ 1, 22 ], [ 2, 20 ], [ 3, 17 ], [ 4, 25 ], [ 5, 19 ],
+      [ 8, 21 ], [ 9, 23 ], [ 10, 18 ], [ 11, 20 ], [ 12, 15 ], [ 13, 22 ],
+      [ 14, 19 ], [ 15, 17 ], [ 16, 20 ], [ 17, 16 ], [ 18, 22 ], [ 19, 18 ], [ 20, 3 ]
     ],
     reviewers[1].id => [ # Bob — very productive, no vacations
-      [0,24],[1,28],[2,22],[3,26],[4,30],[5,25],[6,27],[7,23],
-      [8,28],[9,25],[10,22],[11,28],[12,24],[13,26],[14,20],
-      [15,25],[16,28],[17,22],[18,26],[19,24],[20,4]
+      [ 0, 24 ], [ 1, 28 ], [ 2, 22 ], [ 3, 26 ], [ 4, 30 ], [ 5, 25 ], [ 6, 27 ], [ 7, 23 ],
+      [ 8, 28 ], [ 9, 25 ], [ 10, 22 ], [ 11, 28 ], [ 12, 24 ], [ 13, 26 ], [ 14, 20 ],
+      [ 15, 25 ], [ 16, 28 ], [ 17, 22 ], [ 18, 26 ], [ 19, 24 ], [ 20, 4 ]
     ],
     reviewers[2].id => [ # Carol — onboarded week 8, low start, ramped up
-      [8,9],[9,11],[10,16],[11,18],[12,15],[13,20],[14,17],
-      [15,19],[16,22],[17,18],[18,20],[19,16],[20,3]
+      [ 8, 9 ], [ 9, 11 ], [ 10, 16 ], [ 11, 18 ], [ 12, 15 ], [ 13, 20 ], [ 14, 17 ],
+      [ 15, 19 ], [ 16, 22 ], [ 17, 18 ], [ 18, 20 ], [ 19, 16 ], [ 20, 3 ]
     ],
     # Dave (reviewers[3]) — zero reviews, intentionally omitted
     reviewers[4].id => [ # Eve — onboarded week 3, first week low, vacation week 7
-      [3,11],[4,18],[5,20],[6,16],
-      [8,22],[9,18],[10,15],[11,20],[12,17],[13,22],[14,18],
-      [15,16],[16,20],[17,15],[18,18],[19,17],[20,2]
+      [ 3, 11 ], [ 4, 18 ], [ 5, 20 ], [ 6, 16 ],
+      [ 8, 22 ], [ 9, 18 ], [ 10, 15 ], [ 11, 20 ], [ 12, 17 ], [ 13, 22 ], [ 14, 18 ],
+      [ 15, 16 ], [ 16, 20 ], [ 17, 15 ], [ 18, 18 ], [ 19, 17 ], [ 20, 2 ]
     ],
     reviewers[5].id => [ # Frank — onboarded week 17, very recent, all weeks low so far
-      [17,9],[18,14],[19,11],[20,1]
+      [ 17, 9 ], [ 18, 14 ], [ 19, 11 ], [ 20, 1 ]
     ]
   }
 
@@ -405,7 +405,7 @@ if Rails.env.development?
   # Non-reviewer channel members (shown when SLACK_BOT_TOKEN is blank)
   non_reviewer_data.each do |attrs|
     next if User.exists?(email: attrs[:email])
-    User.insert_all!([{
+    User.insert_all!([ {
       display_name: attrs[:display_name],
       email:        attrs[:email],
       slack_id:     attrs[:slack_id],
@@ -414,7 +414,7 @@ if Rails.env.development?
       timezone:     "UTC",
       created_at:   Time.current,
       updated_at:   Time.current
-    }])
+    } ])
   end
   non_reviewer_data.each { |a| User.where(email: a[:email]).update_all(slack_id: a[:slack_id], roles: []) }
 
@@ -435,7 +435,7 @@ if Rails.env.development?
       { ship_id: 7, dr_status: :pending, dr_reviewer: nil },
       { ship_id: nil, rc_status: :approved, rc_feedback: "All requirements met. Justification is clear and hours are well documented.", dr_status: :pending, dr_reviewer: nil },
       { ship_id: nil, rc_status: :approved, rc_feedback: "Hours verified. Project scope is appropriate and engineering process is documented.", dr_status: :approved, dr_reviewer: "seed_bob@example.com", feedback: "Great work! The design is clean and well thought out. Approved." },
-      { ship_id: nil, rc_status: :approved, rc_feedback: "Requirements check passed. Good justification and sufficient hours logged.", dr_status: :returned, dr_reviewer: "seed_carol@example.com", feedback: "Please add more detail to the process section and include screenshots of the final UI before resubmitting." },
+      { ship_id: nil, rc_status: :approved, rc_feedback: "Requirements check passed. Good justification and sufficient hours logged.", dr_status: :returned, dr_reviewer: "seed_carol@example.com", feedback: "Please add more detail to the process section and include screenshots of the final UI before resubmitting." }
     ]
 
     test_cases.each do |tc|
@@ -444,17 +444,17 @@ if Rails.env.development?
       else
         # status :approved skips the create_initial_reviews! callback
         s_id = Ship.insert_all!(
-          [{ project_id: project.id, ship_type: 0, status: 1, justification: "seed DR test",
-             created_at: Time.current, updated_at: Time.current }],
+          [ { project_id: project.id, ship_type: 0, status: 1, justification: "seed DR test",
+             created_at: Time.current, updated_at: Time.current } ],
           returning: :id
         ).first["id"]
         # Approved RC review — insert_all! skips recompute_ship_status! callback
-        RequirementsCheckReview.insert_all!([{
+        RequirementsCheckReview.insert_all!([ {
           ship_id: s_id, reviewer_id: seed_rc&.id,
           status: RequirementsCheckReview.statuses[:approved],
           feedback: tc[:rc_feedback],
           created_at: Time.current, updated_at: Time.current
-        }])
+        } ])
         Ship.find(s_id)
       end
 
@@ -462,12 +462,12 @@ if Rails.env.development?
 
       reviewer_id = tc[:dr_reviewer] ? User.find_by(email: tc[:dr_reviewer])&.id : nil
       # insert_all! bypasses recompute_ship_status! callback
-      DesignReview.insert_all!([{
+      DesignReview.insert_all!([ {
         ship_id: ship.id, reviewer_id: reviewer_id,
         status:   DesignReview.statuses[tc[:dr_status]],
         feedback: tc[:feedback],
         created_at: Time.current, updated_at: Time.current
-      }])
+      } ])
     end
 
     # Backfill RC feedback for any approved RC reviews on this project that have nil feedback

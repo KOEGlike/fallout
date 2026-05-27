@@ -4,7 +4,18 @@
 #                                             Prefix Verb   URI Pattern                                                                                   Controller#Action
 #                                                    GET    /(*path)(.:format)                                                                            redirect(301) {host: "127.0.0.1"}
 #                admin_requirements_design_dashboard GET    /admin/dashboard/requirements_design(.:format)                                                admin/dashboard#requirements_design
+#                                admin_dev_dashboard GET    /admin/dashboard/dev(.:format)                                                                admin/dashboard#dev
 #                                         admin_root GET    /admin(.:format)                                                                              admin/dashboard#index
+#                admin_reviewer_reviewer_admin_notes POST   /admin/reviewers/:reviewer_id/notes(.:format)                                                 admin/reviewer_admin_notes#create
+#                 admin_reviewer_reviewer_admin_note PATCH  /admin/reviewers/:reviewer_id/notes/:id(.:format)                                             admin/reviewer_admin_notes#update
+#                                                    PUT    /admin/reviewers/:reviewer_id/notes/:id(.:format)                                             admin/reviewer_admin_notes#update
+#                                                    DELETE /admin/reviewers/:reviewer_id/notes/:id(.:format)                                             admin/reviewer_admin_notes#destroy
+#           admin_reviewer_reviewer_unavailabilities POST   /admin/reviewers/:reviewer_id/unavailabilities(.:format)                                      admin/reviewer_unavailabilities#create
+#             admin_reviewer_reviewer_unavailability DELETE /admin/reviewers/:reviewer_id/unavailabilities/:id(.:format)                                  admin/reviewer_unavailabilities#destroy
+#      bulk_admin_reviewer_reviewer_week_resolutions POST   /admin/reviewers/:reviewer_id/week_resolutions/bulk(.:format)                                 admin/reviewer_week_resolutions#bulk_create
+#           admin_reviewer_reviewer_week_resolutions POST   /admin/reviewers/:reviewer_id/week_resolutions(.:format)                                      admin/reviewer_week_resolutions#create
+#            admin_reviewer_reviewer_week_resolution DELETE /admin/reviewers/:reviewer_id/week_resolutions/:id(.:format)                                  admin/reviewer_week_resolutions#destroy
+#                                     admin_reviewer GET    /admin/reviewers/:id(.:format)                                                                admin/reviewers#show
 #                 heartbeat_admin_reviews_time_audit POST   /admin/reviews/time_audits/:id/heartbeat(.:format)                                            admin/reviews/time_audits#heartbeat
 #                     next_admin_reviews_time_audits GET    /admin/reviews/time_audits/next(.:format)                                                     admin/reviews/time_audits#next
 #                          admin_reviews_time_audits GET    /admin/reviews/time_audits(.:format)                                                          admin/reviews/time_audits#index
