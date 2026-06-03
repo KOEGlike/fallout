@@ -18,7 +18,7 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
   end
 
   test "enqueues stale projects (checked_at older than STALE_AFTER)" do
-    project = make_project(repo_link: "https://github.com/example/a")
+    project = make_project(repo_link: "https://github.com/example/a", with_cover: true)
     project.update_columns(unified_thumbnail_checked_at: 25.hours.ago)
     clear_enqueued_jobs
 
@@ -28,7 +28,7 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
   end
 
   test "enqueues never-checked projects (checked_at IS NULL)" do
-    project = make_project(repo_link: "https://github.com/example/b")
+    project = make_project(repo_link: "https://github.com/example/b", with_cover: true)
     project.update_columns(unified_thumbnail_checked_at: nil)
     clear_enqueued_jobs
 
@@ -38,13 +38,23 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
   end
 
   test "skips fresh projects" do
-    project = make_project(repo_link: "https://github.com/example/c")
+    project = make_project(repo_link: "https://github.com/example/c", with_cover: true)
     project.update_columns(unified_thumbnail_checked_at: 1.hour.ago)
     clear_enqueued_jobs
 
     RefreshStaleUnifiedThumbnailsJob.perform_now
 
     refute enqueued_for?(project.id), "fresh project should not be enqueued"
+  end
+
+  test "skips projects without an attached cover" do
+    project = make_project(repo_link: "https://github.com/example/nocover")
+    project.update_columns(unified_thumbnail_checked_at: nil)
+    clear_enqueued_jobs
+
+    RefreshStaleUnifiedThumbnailsJob.perform_now
+
+    refute enqueued_for?(project.id), "project without a cover attachment should not be blind-scanned"
   end
 
   test "skips projects with blank repo_link" do
@@ -72,9 +82,9 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
     original_limit = RefreshStaleUnifiedThumbnailsJob::PER_RUN_LIMIT
     silence_warnings { RefreshStaleUnifiedThumbnailsJob.const_set(:PER_RUN_LIMIT, 2) }
 
-    p1 = make_project(repo_link: "https://github.com/example/e1")
-    p2 = make_project(repo_link: "https://github.com/example/e2")
-    p3 = make_project(repo_link: "https://github.com/example/e3")
+    p1 = make_project(repo_link: "https://github.com/example/e1", with_cover: true)
+    p2 = make_project(repo_link: "https://github.com/example/e2", with_cover: true)
+    p3 = make_project(repo_link: "https://github.com/example/e3", with_cover: true)
     [ p1, p2, p3 ].each { |p| p.update_columns(unified_thumbnail_checked_at: 10.years.ago) }
     clear_enqueued_jobs
 
@@ -91,8 +101,14 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
 
   private
 
-  def make_project(repo_link:)
-    Project.create!(user: @user, name: "P-#{SecureRandom.hex(4)}", repo_link: repo_link)
+  def make_project(repo_link:, with_cover: false)
+    project = Project.create!(user: @user, name: "P-#{SecureRandom.hex(4)}", repo_link: repo_link)
+    # The sweep only refreshes projects that already have a cover attachment, so tests that
+    # expect enqueueing must attach one.
+    if with_cover
+      project.unified_thumbnail.attach(io: StringIO.new("\xFF\xD8\xFF\xD9".b), filename: "cover.jpg", content_type: "image/jpeg")
+    end
+    project
   end
 
   def enqueued_for?(project_id)
