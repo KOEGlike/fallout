@@ -363,7 +363,16 @@ class Project < ApplicationRecord
   end
 
   def clear_unified_thumbnail!
-    unified_thumbnail.purge if unified_thumbnail.attached? # synchronous: the post-save reload must see attached? == false
+    # Remove the attachment row synchronously (the post-save reload must see attached? == false) but delete
+    # the blob's stored file in a job, so a slow/erroring object store can't add latency to — or raise inside —
+    # this after_commit on the user's repo_link save. detach deletes the attachment without callbacks: a plain
+    # destroy would fire belongs_to(touch: true) → re-enter this after_commit → infinite recursion. purge_later
+    # alone wouldn't work either — it removes the attachment row in the job, so the reload would still see it.
+    if unified_thumbnail.attached?
+      blob = unified_thumbnail.blob
+      unified_thumbnail.detach
+      blob&.purge_later
+    end
     # update_columns: skip the after_commit chain so this metadata write doesn't re-trigger
     # Meilisearch reindex / bulletin broadcasts / re-enter this callback.
     update_columns(

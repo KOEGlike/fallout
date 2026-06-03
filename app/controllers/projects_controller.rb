@@ -217,7 +217,9 @@ class ProjectsController < ApplicationController
     # force: bust the 6h finder cache so a freshly added zine is picked up now.
     # allow_representative: false — the button only sets a cover when a real zine is found.
     ComputeProjectUnifiedThumbnailJob.perform_later(@project.id, force: true, allow_representative: false)
-    render json: { since: since.iso8601 }
+    # iso8601(6): keep microsecond precision so cover_status can't read a concurrent job's same-second
+    # checked_at write as "already finished" and resolve before this forced scan runs.
+    render json: { since: since.iso8601(6) }
   end
 
   def cover_status
