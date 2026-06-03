@@ -259,7 +259,12 @@ if Rails.env.development?
     cover_jpeg = nil
     result = ShipChecks::UnifiedScreenshotProcessor.download_with_etag(d[:cover], if_none_match: nil)
     if result[:status] == :changed && result[:bytes].present?
-      cover_jpeg = ShipChecks::UnifiedScreenshotProcessor.transcode_to_jpeg(result[:bytes], result[:content_type])
+      # Resolve + guard the content type like the cover job does: a server returning an unknown or blank
+      # Content-Type would otherwise make transcode_to_jpeg's EXT_FOR_CONTENT_TYPE.fetch raise and abort db:seed.
+      effective_type = ShipChecks::UnifiedScreenshotProcessor.resolve_content_type(result[:content_type], d[:cover])
+      if ShipChecks::UnifiedScreenshotProcessor::SUPPORTED_CONTENT_TYPES.include?(effective_type)
+        cover_jpeg = ShipChecks::UnifiedScreenshotProcessor.transcode_to_jpeg(result[:bytes], effective_type)
+      end
     end
     if cover_jpeg
       project.unified_thumbnail.attach(io: StringIO.new(cover_jpeg), filename: "#{d[:name].parameterize}.jpg", content_type: "image/jpeg")

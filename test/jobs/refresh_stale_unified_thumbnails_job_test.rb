@@ -58,7 +58,8 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
   end
 
   test "skips projects with blank repo_link" do
-    project = make_project(repo_link: nil)
+    # with_cover so the attachment JOIN includes it — this isolates the repo_link filter as the reason it's skipped.
+    project = make_project(repo_link: nil, with_cover: true)
     project.update_columns(unified_thumbnail_checked_at: nil)
     clear_enqueued_jobs
 
@@ -68,7 +69,8 @@ class RefreshStaleUnifiedThumbnailsJobTest < ActiveJob::TestCase
   end
 
   test "skips discarded projects" do
-    project = make_project(repo_link: "https://github.com/example/d")
+    # with_cover so the attachment JOIN includes it — this isolates the kept (discard) filter as the reason it's skipped.
+    project = make_project(repo_link: "https://github.com/example/d", with_cover: true)
     project.update_columns(unified_thumbnail_checked_at: nil)
     project.discard
     clear_enqueued_jobs
