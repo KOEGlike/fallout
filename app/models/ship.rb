@@ -392,7 +392,10 @@ class Ship < ApplicationRecord
 
     fields = {
       "Code URL" => frozen_repo_link,
-      "Playable URL" => frozen_demo_link.presence || frozen_repo_link,
+      # demo_link is curated by the BR reviewer during review (set right before approval),
+      # so read it live here rather than from frozen_demo_link, which was snapshotted at ship
+      # creation before the reviewer set it. Falls back to the creation snapshot, then repo.
+      "Playable URL" => project.demo_link.presence || frozen_demo_link.presence || frozen_repo_link,
       "First Name" => identity["first_name"],
       "Last Name" => identity["last_name"],
       "Email" => user.email,
