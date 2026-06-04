@@ -15,7 +15,7 @@ The system is an append-only ledger. Balances are derived by replaying history, 
 ### `ProjectGrantOrder` ([app/models/project_grant_order.rb](../app/models/project_grant_order.rb))
 What the user **requested**.
 - `frozen_usd_cents` — what they asked for
-- `frozen_koi_amount` — koi cost snapshotted at request time via `HcbGrantSetting#koi_for_usd_cents` (ceil-rounded so the program never undercharges)
+- `frozen_koi_amount` / `frozen_gold_amount` — total currency cost (`HcbGrantSetting#koi_for_usd_cents`, ceil-rounded so the program never undercharges) split **koi-first, gold-second** (1 koi = 1 gold) against the user's live koi balance at request time
 - `state` — `pending | fulfilled | rejected | on_hold`
 - Soft-delete only (`Discardable`); `destroy` raises.
 - Trial users blocked at validation.

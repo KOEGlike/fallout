@@ -24,6 +24,7 @@ type Order = {
   id: number
   user: { id: number; display_name: string; email: string; avatar: string }
   frozen_koi_amount: number
+  frozen_gold_amount: number
   frozen_usd_cents: number
   action_type: 'new_grant' | 'top_up'
   user_total_transferred_cents: number
@@ -165,6 +166,7 @@ export default function AdminProjectGrantsOrdersIndex({
 
   const selectedOrders = orders.filter((o) => selectedIds.has(o.id))
   const totalKoi = selectedOrders.reduce((s, o) => s + o.frozen_koi_amount, 0)
+  const totalGold = selectedOrders.reduce((s, o) => s + o.frozen_gold_amount, 0)
   const totalCents = selectedOrders.reduce((s, o) => s + o.frozen_usd_cents, 0)
   const distinctUsers = new Set(selectedOrders.map((o) => o.user.id))
   const newGrantUserIds = new Set(selectedOrders.filter((o) => o.action_type === 'new_grant').map((o) => o.user.id))
@@ -329,8 +331,14 @@ export default function AdminProjectGrantsOrdersIndex({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 p-3 border border-border rounded-md bg-muted/40">
           <div className="text-sm">
             <span className="font-medium">{selectedIds.size}</span> selected ·{' '}
-            <span className="font-medium">{totalKoi}</span> koi ·{' '}
-            <span className="font-medium">{formatDollars(totalCents)}</span> ·{' '}
+            <span className="font-medium">{totalKoi}</span> koi
+            {totalGold > 0 ? (
+              <>
+                {' '}
+                · <span className="font-medium">{totalGold}</span> gold
+              </>
+            ) : null}{' '}
+            · <span className="font-medium">{formatDollars(totalCents)}</span> ·{' '}
             <span className="font-medium">{distinctUsers.size}</span> user{distinctUsers.size === 1 ? '' : 's'} (
             {newGrantUserIds.size} new grant{newGrantUserIds.size === 1 ? '' : 's'},{' '}
             {distinctUsers.size - newGrantUserIds.size} top-up
@@ -367,7 +375,7 @@ export default function AdminProjectGrantsOrdersIndex({
                 />
               </th>
               <th className="p-3">User</th>
-              <th className="p-3">Koi</th>
+              <th className="p-3">Koi · Gold</th>
               <th className="p-3">USD</th>
               {hours_configured && <th className="p-3">Hours</th>}
               <th className="p-3" title="Sum of completed HCB topups already sent to this user">
@@ -387,7 +395,7 @@ export default function AdminProjectGrantsOrdersIndex({
               </tr>
             ) : (
               orders.map((o) => {
-                const hours = hoursFor(o.frozen_koi_amount, rates)
+                const hours = hoursFor(o.frozen_koi_amount + o.frozen_gold_amount, rates)
                 const selectable = o.state !== 'fulfilled'
                 return (
                   <tr key={o.id} className="border-b border-border last:border-0 hover:bg-muted/30">
@@ -412,7 +420,10 @@ export default function AdminProjectGrantsOrdersIndex({
                         </span>
                       </Link>
                     </td>
-                    <td className="p-3 font-mono">{o.frozen_koi_amount}</td>
+                    <td className="p-3 font-mono">
+                      {o.frozen_koi_amount}
+                      {o.frozen_gold_amount > 0 ? ` · ${o.frozen_gold_amount}` : ''}
+                    </td>
                     <td className="p-3 font-mono">{formatDollars(o.frozen_usd_cents)}</td>
                     {hours_configured && <td className="p-3 font-mono">{hours ?? '—'}</td>}
                     <td className="p-3 font-mono">
@@ -800,7 +811,8 @@ export default function AdminProjectGrantsOrdersIndex({
           <AlertDialogHeader>
             <AlertDialogTitle>Batch fulfill {selectedIds.size} order(s)?</AlertDialogTitle>
             <AlertDialogDescription>
-              Total {totalKoi} koi · {formatDollars(totalCents)} across {distinctUsers.size} user
+              Total {totalKoi} koi{totalGold > 0 ? ` · ${totalGold} gold` : ''} · {formatDollars(totalCents)} across{' '}
+              {distinctUsers.size} user
               {distinctUsers.size === 1 ? '' : 's'} ({newGrantUserIds.size} new grant
               {newGrantUserIds.size === 1 ? '' : 's'}, {distinctUsers.size - newGrantUserIds.size} top-up
               {distinctUsers.size - newGrantUserIds.size === 1 ? '' : 's'}).

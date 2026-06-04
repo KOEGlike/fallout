@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_173000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -542,6 +542,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_173000) do
     t.text "admin_note"
     t.datetime "created_at", null: false
     t.datetime "discarded_at"
+    t.integer "frozen_gold_amount", default: 0, null: false
     t.integer "frozen_koi_amount", null: false
     t.integer "frozen_usd_cents", null: false
     t.string "state", default: "pending", null: false

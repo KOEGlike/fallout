@@ -15,7 +15,15 @@ function koiForUsdCents(usdCents: number, rates: Rates): number {
   return Math.ceil((usdCents * rates.koi_to_cents_denominator) / rates.koi_to_cents_numerator)
 }
 
-export default function ProjectGrantsNew({ koi_balance, rates }: { koi_balance: number; rates: Rates }) {
+export default function ProjectGrantsNew({
+  koi_balance,
+  gold_balance,
+  rates,
+}: {
+  koi_balance: number
+  gold_balance: number
+  rates: Rates
+}) {
   const { errors } = usePage<SharedProps>().props
   const form = useForm({ usd_dollars: '' })
 
@@ -24,9 +32,12 @@ export default function ProjectGrantsNew({ koi_balance, rates }: { koi_balance: 
   const dollars = parseInt(form.data.usd_dollars, 10)
   const dollarsValid = Number.isInteger(dollars) && dollars > 0
   const usdCents = dollarsValid ? dollars * 100 : 0
-  const koiCost = dollarsValid ? koiForUsdCents(usdCents, rates) : 0
-  const canAfford = koiCost > 0 && koi_balance >= koiCost
-  const remaining = koi_balance - koiCost
+  const totalCost = dollarsValid ? koiForUsdCents(usdCents, rates) : 0
+  // Mirror ProjectGrantOrder#snapshot_cost_from_usd: deplete koi first, then gold (1:1).
+  const koiCost = Math.min(totalCost, koi_balance)
+  const goldCost = totalCost - koiCost
+  const canAfford = totalCost > 0 && koi_balance + gold_balance >= totalCost
+  const shortfall = totalCost - (koi_balance + gold_balance)
   const isInteractive = dollarsValid && canAfford && !form.processing
 
   function submit(e: React.FormEvent) {
@@ -141,20 +152,29 @@ export default function ProjectGrantsNew({ koi_balance, rates }: { koi_balance: 
           <div className="mb-6 text-dark-brown">
             <div className="flex justify-between">
               <span>Balance</span>
-              <span className="font-bold">{koi_balance} koi</span>
+              <span className="font-bold">
+                {koi_balance} koi · {gold_balance} gold
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Cost{dollarsValid ? ` (for $${dollars})` : ''}</span>
-              <span className="font-bold">{koiCost > 0 ? `-${koiCost} koi` : '— koi'}</span>
+              <span className="font-bold">
+                {totalCost > 0 ? `-${koiCost} koi${goldCost > 0 ? ` · -${goldCost} gold` : ''}` : '— koi'}
+              </span>
             </div>
             <div className="flex justify-between border-t-2 border-dark-brown pt-1 mt-2">
               <span className="font-bold">After request</span>
-              <span className="font-bold">{koiCost > 0 ? `${remaining} koi` : `${koi_balance} koi`}</span>
+              <span className="font-bold">
+                {totalCost > 0
+                  ? `${koi_balance - koiCost} koi · ${gold_balance - goldCost} gold`
+                  : `${koi_balance} koi · ${gold_balance} gold`}
+              </span>
             </div>
+            {dollarsValid && goldCost > 0 && canAfford && (
+              <p className="text-dark-brown text-sm mt-2">Koi runs out, so the rest comes from gold.</p>
+            )}
             {dollarsValid && !canAfford && (
-              <p className="text-brown text-sm mt-2 font-bold">
-                Not enough koi — you're short {koiCost - koi_balance}.
-              </p>
+              <p className="text-brown text-sm mt-2 font-bold">Not enough koi or gold — you're short {shortfall}.</p>
             )}
           </div>
 

@@ -11,6 +11,7 @@ class ProjectGrantsController < ApplicationController
     render inertia: "project_grants/index", props: {
       orders: @orders.map { |o| serialize(o) },
       koi_balance: current_user.koi,
+      gold_balance: current_user.gold,
       rates: rate_props,
       hours_configured: HcbGrantSetting.current.hours_rate_configured?
     }
@@ -22,6 +23,7 @@ class ProjectGrantsController < ApplicationController
 
     render inertia: "project_grants/new", props: {
       koi_balance: current_user.koi,
+      gold_balance: current_user.gold,
       rates: rate_props,
       hours_configured: HcbGrantSetting.current.hours_rate_configured?
     }
@@ -36,8 +38,10 @@ class ProjectGrantsController < ApplicationController
     saved = current_user.with_lock { @order.save }
 
     if saved
+      cost = [ "#{@order.frozen_koi_amount} koi" ]
+      cost << "#{@order.frozen_gold_amount} gold" if @order.frozen_gold_amount.positive?
       redirect_to project_grants_path,
-        notice: "Grant request submitted ($#{format('%.2f', @order.frozen_usd_cents / 100.0)}, #{@order.frozen_koi_amount} koi). Awaiting admin approval."
+        notice: "Grant request submitted ($#{format('%.2f', @order.frozen_usd_cents / 100.0)}, #{cost.join(' + ')}). Awaiting admin approval."
     else
       redirect_back fallback_location: new_project_grant_path,
         inertia: { errors: @order.errors.messages }
@@ -66,6 +70,7 @@ class ProjectGrantsController < ApplicationController
       id: order.id,
       frozen_usd_cents: order.frozen_usd_cents,
       frozen_koi_amount: order.frozen_koi_amount,
+      frozen_gold_amount: order.frozen_gold_amount,
       state: order.state,
       admin_note: order.admin_note,
       created_at: order.created_at.strftime("%b %d, %Y %H:%M")

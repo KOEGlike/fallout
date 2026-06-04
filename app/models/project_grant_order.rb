@@ -4,15 +4,16 @@
 #
 # Table name: project_grant_orders
 #
-#  id                :bigint           not null, primary key
-#  admin_note        :text
-#  discarded_at      :datetime
-#  frozen_koi_amount :integer          not null
-#  frozen_usd_cents  :integer          not null
-#  state             :string           default("pending"), not null
-#  created_at        :datetime         not null
-#  updated_at        :datetime         not null
-#  user_id           :bigint           not null
+#  id                 :bigint           not null, primary key
+#  admin_note         :text
+#  discarded_at       :datetime
+#  frozen_gold_amount :integer          default(0), not null
+#  frozen_koi_amount  :integer          not null
+#  frozen_usd_cents   :integer          not null
+#  state              :string           default("pending"), not null
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
+#  user_id            :bigint           not null
 #
 # Indexes
 #
@@ -35,23 +36,32 @@ class ProjectGrantOrder < ApplicationRecord
 
   enum :state, { pending: "pending", fulfilled: "fulfilled", rejected: "rejected", on_hold: "on_hold" }, default: "pending"
 
-  # User specifies USD they need; we derive the koi cost from current rate and snapshot both.
-  # Both must be set before validation runs because the columns are NOT NULL.
-  before_validation :snapshot_koi_cost_from_usd, on: :create
+  # User specifies USD they need; we derive the total currency cost from the current rate
+  # and split it koi-first, gold-second (1 koi = 1 gold). All columns are NOT NULL.
+  before_validation :snapshot_cost_from_usd, on: :create
+
+  # Gold is a mutated counter cache (users.gold_balance), unlike koi which is recomputed
+  # from ledgers in User#koi. So the gold portion must be deducted/refunded explicitly,
+  # mirroring ShopOrder. The koi portion needs no callback — User#koi excludes rejected
+  # orders, so rejecting auto-refunds koi.
+  after_create :deduct_gold_balance, if: :spends_gold?
+  after_update :sync_gold_balance, if: -> { spends_gold? && saved_change_to_state? }
 
   validates :frozen_usd_cents, presence: true, numericality: { greater_than: 0, only_integer: true }
-  validates :frozen_koi_amount, presence: true, numericality: { greater_than: 0, only_integer: true }
+  validates :frozen_koi_amount, presence: true, numericality: { greater_than_or_equal_to: 0, only_integer: true }
+  validates :frozen_gold_amount, presence: true, numericality: { greater_than_or_equal_to: 0, only_integer: true }
+  validate :must_cost_something, on: :create
   validates :state, inclusion: { in: STATES }
   # Project grants move real money — trials don't have the verified identity HCB expects.
   validate :user_must_be_full_account, on: :create
   # Mirrors ShopOrder#user_can_afford: blocks at form submission rather than letting an
   # admin discover the user couldn't pay only after they're sitting in the review queue.
-  validate :user_can_afford_koi, on: :create
+  validate :user_can_afford, on: :create
 
-  # NOTE on fulfilled→rejected: this transition IS allowed and will refund koi to the
-  # user via `User#koi` (which excludes rejected orders from the deduction). It does NOT
-  # automatically claw money back on HCB — the admin is responsible for reconciling the
-  # HCB side via the "Record adjustment" flow if needed. This decoupling is intentional:
+  # NOTE on fulfilled→rejected: this transition IS allowed and refunds the user — koi via
+  # `User#koi` (which excludes rejected orders) and gold via `sync_gold_balance` below. It
+  # does NOT automatically claw money back on HCB — the admin is responsible for reconciling
+  # the HCB side via the "Record adjustment" flow if needed. This decoupling is intentional:
   # real-world refunds are messy (invoicing, partial recovery) and the admin needs
   # flexibility over what goes in the ledger.
 
@@ -62,10 +72,23 @@ class ProjectGrantOrder < ApplicationRecord
 
   private
 
-  def snapshot_koi_cost_from_usd
+  # Splits the total currency cost koi-first against the user's live koi balance, with the
+  # remainder charged in gold (1 koi = 1 gold). Skips if already computed so it's idempotent
+  # across the valid?/save validation passes.
+  def snapshot_cost_from_usd
     return unless frozen_usd_cents.is_a?(Integer) && frozen_usd_cents.positive?
+    return if frozen_koi_amount # 0 is truthy in Ruby — a pure-gold order stays put
 
-    self.frozen_koi_amount ||= HcbGrantSetting.current.koi_for_usd_cents(frozen_usd_cents)
+    total = HcbGrantSetting.current.koi_for_usd_cents(frozen_usd_cents)
+    koi_part = user ? user.koi.clamp(0, total) : 0
+    self.frozen_koi_amount = koi_part
+    self.frozen_gold_amount = total - koi_part
+  end
+
+  def must_cost_something
+    return unless frozen_koi_amount && frozen_gold_amount
+
+    errors.add(:base, "Grant must cost something") unless (frozen_koi_amount + frozen_gold_amount).positive?
   end
 
   def user_must_be_full_account
@@ -75,9 +98,26 @@ class ProjectGrantOrder < ApplicationRecord
     errors.add(:user, "cannot be a trial user — project grants require a full account")
   end
 
-  def user_can_afford_koi
-    return unless user && frozen_koi_amount
+  def user_can_afford
+    return unless user && frozen_koi_amount && frozen_gold_amount
+    return if user.koi >= frozen_koi_amount && user.gold >= frozen_gold_amount
 
-    errors.add(:base, "You don't have enough koi for this grant") if user.koi < frozen_koi_amount
+    errors.add(:base, "You don't have enough koi or gold for this grant")
+  end
+
+  def spends_gold?
+    frozen_gold_amount.to_i.positive?
+  end
+
+  def deduct_gold_balance
+    User.update_counters(user_id, gold_balance: -frozen_gold_amount)
+  end
+
+  def sync_gold_balance
+    if rejected?
+      User.update_counters(user_id, gold_balance: frozen_gold_amount)         # refund on reject
+    elsif state_before_last_save == "rejected"
+      User.update_counters(user_id, gold_balance: -frozen_gold_amount)        # re-deduct on un-reject
+    end
   end
 end

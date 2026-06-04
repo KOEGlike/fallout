@@ -210,7 +210,7 @@ export default function ShopIndex({
           <div className="border-2 border-dark-brown bg-brown rounded-md p-[6px]">
             <ul className="flex items-center justify-center px-2 gap-2 w-fit">
               <li className="rounded-sm flex">
-                <img src="/koifish.webp" alt="koi" className="text-xs w-10 mx-1 object-contain" />
+                <img src="/koi-gold.webp" alt="koi" className="text-xs w-10 mx-1 object-contain" />
                 <span className="text-2xl font-bold text-light-brown mx-1">{koi_balance}</span>
               </li>
               <li className="rounded-sm flex">

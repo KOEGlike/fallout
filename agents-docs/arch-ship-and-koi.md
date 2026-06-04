@@ -524,8 +524,9 @@ If you change the rate (currently `7`) or the source-of-truth field (currently `
 
 ### Spending: Project Grants
 
-`ProjectGrantOrder` (`app/models/project_grant_order.rb`) — the koi → real USD path via HCB.
-- User specifies `frozen_usd_cents`; `before_validation :snapshot_koi_cost_from_usd` derives `frozen_koi_amount` from `HcbGrantSetting.current.koi_for_usd_cents(usd_cents)` (rounded UP — user pays the ceiling).
+`ProjectGrantOrder` (`app/models/project_grant_order.rb`) — the koi/gold → real USD path via HCB.
+- User specifies `frozen_usd_cents`; `before_validation :snapshot_cost_from_usd` derives the total currency cost from `HcbGrantSetting.current.koi_for_usd_cents(usd_cents)` (rounded UP — user pays the ceiling), then splits it **koi-first, gold-second** (1 koi = 1 gold) into `frozen_koi_amount` / `frozen_gold_amount`. Affordability checks `koi + gold >= total`.
+- The koi portion refunds automatically on reject via `User#koi` (excludes rejected orders). The gold portion is a mutated counter cache, so `after_create :deduct_gold_balance` / `after_update :sync_gold_balance` deduct and refund it explicitly, mirroring `ShopOrder`.
 - `HcbGrantSetting` stores `koi_to_cents_numerator` (default 500) / `koi_to_cents_denominator` (default 7) → 7 koi = $5 = 500 cents (so 1 koi ≈ $0.71).
 - Soft-deletable (`include Discardable`).
 - States mirror `ShopOrder`: pending, fulfilled, rejected, on_hold.
