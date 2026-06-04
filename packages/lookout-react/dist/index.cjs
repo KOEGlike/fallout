@@ -54,7 +54,7 @@ async function fetchJson(url, init) {
   return res.json();
 }
 function createLookoutClient(options) {
-  const { baseUrl, token } = options;
+  const { baseUrl, token, clientInfo } = options;
   const resolveToken = () => resolveTokenValue(token);
   async function sessionUrl(path = "") {
     const t = await resolveToken();
@@ -67,8 +67,11 @@ function createLookoutClient(options) {
     },
     async getUploadUrl(opts) {
       const base = await sessionUrl("/upload-url");
-      const url = opts?.capturedAt ? `${base}?capturedAt=${encodeURIComponent(opts.capturedAt)}` : base;
-      return fetchJson(url);
+      const params = new URLSearchParams();
+      if (opts?.capturedAt) params.set("capturedAt", opts.capturedAt);
+      if (clientInfo) params.set("clientInfo", clientInfo);
+      const qs = params.toString();
+      return fetchJson(qs ? `${base}?${qs}` : base);
     },
     async confirmScreenshot(body) {
       return fetchJson(await sessionUrl("/screenshots"), {
@@ -157,6 +160,7 @@ function resolveConfig(config) {
     autoStart: config.autoStart ?? false
   };
 }
+var SDK_VERSION = "0.2.7" ;
 var LookoutContext = react.createContext(null);
 function useLookoutContext() {
   const ctx = react.useContext(LookoutContext);
@@ -172,12 +176,21 @@ function LookoutProvider({
   ...config
 }) {
   const resolved = react.useMemo(() => resolveConfig(config), [config]);
+  const clientInfo = react.useMemo(
+    () => shared.buildBrowserClientInfo({
+      type: "sdk",
+      version: SDK_VERSION,
+      embeddedApp: config.appName
+    }),
+    [config.appName]
+  );
   const client = react.useMemo(
     () => createLookoutClient({
       baseUrl: resolved.apiBaseUrl,
-      token: resolved.token
+      token: resolved.token,
+      clientInfo
     }),
-    [resolved.apiBaseUrl, resolved.token]
+    [resolved.apiBaseUrl, resolved.token, clientInfo]
   );
   const value = react.useMemo(() => ({ config: resolved, client }), [resolved, client]);
   react.useEffect(() => {

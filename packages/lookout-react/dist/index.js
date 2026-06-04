@@ -1,5 +1,5 @@
 import { createContext, useMemo, useEffect, useRef, useState, useCallback, useContext } from 'react';
-import { VIDEO_READY_TIMEOUT_MS, MAX_PENDING_BUFFER, UPLOAD_RETRY_DELAYS_MS, MAX_UPLOAD_RETRIES, MAX_HEIGHT, MAX_WIDTH, JPEG_QUALITY, SCREENSHOT_INTERVAL_MS, CANVAS_TO_BLOB_TIMEOUT_MS } from '@lookout/shared';
+import { buildBrowserClientInfo, VIDEO_READY_TIMEOUT_MS, MAX_PENDING_BUFFER, UPLOAD_RETRY_DELAYS_MS, MAX_UPLOAD_RETRIES, MAX_HEIGHT, MAX_WIDTH, JPEG_QUALITY, SCREENSHOT_INTERVAL_MS, CANVAS_TO_BLOB_TIMEOUT_MS } from '@lookout/shared';
 export { SESSION_STATUSES } from '@lookout/shared';
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { motion, AnimatePresence } from 'motion/react';
@@ -53,7 +53,7 @@ async function fetchJson(url, init) {
   return res.json();
 }
 function createLookoutClient(options) {
-  const { baseUrl, token } = options;
+  const { baseUrl, token, clientInfo } = options;
   const resolveToken = () => resolveTokenValue(token);
   async function sessionUrl(path = "") {
     const t = await resolveToken();
@@ -66,8 +66,11 @@ function createLookoutClient(options) {
     },
     async getUploadUrl(opts) {
       const base = await sessionUrl("/upload-url");
-      const url = opts?.capturedAt ? `${base}?capturedAt=${encodeURIComponent(opts.capturedAt)}` : base;
-      return fetchJson(url);
+      const params = new URLSearchParams();
+      if (opts?.capturedAt) params.set("capturedAt", opts.capturedAt);
+      if (clientInfo) params.set("clientInfo", clientInfo);
+      const qs = params.toString();
+      return fetchJson(qs ? `${base}?${qs}` : base);
     },
     async confirmScreenshot(body) {
       return fetchJson(await sessionUrl("/screenshots"), {
@@ -156,6 +159,7 @@ function resolveConfig(config) {
     autoStart: config.autoStart ?? false
   };
 }
+var SDK_VERSION = "0.2.7" ;
 var LookoutContext = createContext(null);
 function useLookoutContext() {
   const ctx = useContext(LookoutContext);
@@ -171,12 +175,21 @@ function LookoutProvider({
   ...config
 }) {
   const resolved = useMemo(() => resolveConfig(config), [config]);
+  const clientInfo = useMemo(
+    () => buildBrowserClientInfo({
+      type: "sdk",
+      version: SDK_VERSION,
+      embeddedApp: config.appName
+    }),
+    [config.appName]
+  );
   const client = useMemo(
     () => createLookoutClient({
       baseUrl: resolved.apiBaseUrl,
-      token: resolved.token
+      token: resolved.token,
+      clientInfo
     }),
-    [resolved.apiBaseUrl, resolved.token]
+    [resolved.apiBaseUrl, resolved.token, clientInfo]
   );
   const value = useMemo(() => ({ config: resolved, client }), [resolved, client]);
   useEffect(() => {
