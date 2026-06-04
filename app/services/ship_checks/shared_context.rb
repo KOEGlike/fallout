@@ -17,6 +17,12 @@ module ShipChecks
       @repo_meta ||= fetch_repo_meta
     end
 
+    # HEAD commit SHA of the default branch — the true content identity used to key
+    # cached check results so a push always busts the cache. nil if it can't be resolved.
+    def head_sha
+      @head_sha ||= fetch_head_sha
+    end
+
     def repo_tree
       @repo_tree ||= fetch_repo_tree
     end
@@ -94,6 +100,12 @@ module ShipChecks
     def fetch_repo_meta
       return nil if project.repo_link.blank?
       github_api("/repos/#{github_nwo}")
+    end
+
+    def fetch_head_sha
+      return nil unless repo_meta
+      branch = repo_meta["default_branch"] || "main"
+      github_api("/repos/#{github_nwo}/git/ref/heads/#{branch}")&.dig("object", "sha")
     end
 
     def fetch_repo_tree
