@@ -43,7 +43,7 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
       new_entries: new_entries.map { |je| serialize_journal_entry(je, time_audit) },
       previous_entries: previous_entries.map { |je| serialize_journal_entry(je, time_audit) },
       sibling_statuses: serialize_sibling_statuses(ship),
-      previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview),
+      previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: @review.repo_tree,
       refresh_tree_path: refresh_tree_admin_reviews_requirements_check_path(@review),
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
@@ -67,28 +67,18 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
   def update
     authorize @review
 
-    # Checkpoint message is optional — attempt lookup on terminal submissions and attach if found,
-    # but never block the review if no message exists.
-    submitting_terminal = %w[approved returned rejected].include?(params.dig(:requirements_check_review, :status))
-    checkpoint_just_stored = false
-    if submitting_terminal && @review.checkpoint_message_url.blank?
-      slack_id = @review.ship.project.user.slack_id
-      url, _failure = resolve_checkpoint_message(slack_id, params.dig(:requirements_check_review, :checkpoint_message_url))
-      if url
-        @review.update_columns(checkpoint_message_url: url)
-        checkpoint_just_stored = true
-      end
-    end
+    # Checkpoint message is optional — attach it if found, but never block the review. The Slack
+    # lookup runs in a background job so the slow API calls don't time out the submit request.
+    needs_checkpoint = @review.checkpoint_message_url.blank?
+    provided_permalink = params.dig(:requirements_check_review, :checkpoint_message_url)
 
     @review.finalizing_user = current_user # Reviewable#stamp_finalizing_reviewer backfills reviewer_id on terminal save when claim was cleared mid-session
     if @review.update(review_params)
       if @review.approved? || @review.returned? || @review.rejected?
-        if checkpoint_just_stored
-          PostCheckpointThreadJob.perform_later(
-            message_ts: SlackCheckpointService.extract_ts(@review.checkpoint_message_url),
-            ship_id: @review.ship_id,
-            review_type: "requirements_check",
-            review_status: @review.status,
+        if needs_checkpoint
+          ResolveRequirementsCheckCheckpointJob.perform_later(
+            review_id: @review.id,
+            provided_permalink: provided_permalink,
             base_url: request.base_url,
             project_url: project_url(@review.ship.project),
             repo_url: @review.ship.project.repo_link

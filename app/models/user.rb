@@ -490,13 +490,18 @@ class User < ApplicationRecord
   # exists because journal collaborator credit doesn't require project collaborator
   # membership (decided 2026-05-14: journal collaborators are the source of truth).
   def projects_attributable_to_self_ids
-    owned = projects.kept.pluck(:id)
-    collab = collaborated_projects.kept.pluck(:id)
-    journal_authored = journal_entries.kept.distinct.pluck(:project_id)
-    journal_collab = JournalEntry.kept
-      .where(id: Collaborator.kept.where(user: self, collaboratable_type: "JournalEntry").select(:collaboratable_id))
-      .distinct.pluck(:project_id)
-    (owned + collab + journal_authored + journal_collab).uniq
+    # Memoized: total_time_logged_seconds and approved_time_logged_seconds both call this,
+    # and they're frequently invoked together (shop, profile, ticket-claim, admin pages),
+    # so caching avoids recomputing the 4-query attribution set twice per request.
+    @projects_attributable_to_self_ids ||= begin
+      owned = projects.kept.pluck(:id)
+      collab = collaborated_projects.kept.pluck(:id)
+      journal_authored = journal_entries.kept.distinct.pluck(:project_id)
+      journal_collab = JournalEntry.kept
+        .where(id: Collaborator.kept.where(user: self, collaboratable_type: "JournalEntry").select(:collaboratable_id))
+        .distinct.pluck(:project_id)
+      (owned + collab + journal_authored + journal_collab).uniq
+    end
   end
 
   def koi

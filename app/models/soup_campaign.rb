@@ -82,10 +82,10 @@ class SoupCampaign < ApplicationRecord
     []
   end
 
-  def recipient_stats
-    totals = soup_campaign_recipients
-      .group(:status)
-      .count
+  # status_counts: optional precomputed `group(:status).count` hash (integer-keyed) so callers
+  # rendering many campaigns can batch the per-status counts into one query. nil = self-query.
+  def recipient_stats(status_counts = nil)
+    totals = (status_counts || soup_campaign_recipients.group(:status).count)
       .transform_keys { |k| SoupCampaignRecipient.statuses.key(k) }
 
     {
@@ -98,11 +98,17 @@ class SoupCampaign < ApplicationRecord
     }
   end
 
-  def progress_percent
+  def progress_percent(status_counts = nil)
     total = soup_campaign_recipients_count
     return 0 if total.zero?
 
-    done = soup_campaign_recipients.where(status: %i[sent failed skipped unsubscribed]).count
+    done = if status_counts
+      status_counts
+        .transform_keys { |k| SoupCampaignRecipient.statuses.key(k) }
+        .values_at("sent", "failed", "skipped", "unsubscribed").map(&:to_i).sum
+    else
+      soup_campaign_recipients.where(status: %i[sent failed skipped unsubscribed]).count
+    end
     (done.to_f / total * 100).round
   end
 

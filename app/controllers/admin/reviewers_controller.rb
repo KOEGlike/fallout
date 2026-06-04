@@ -72,7 +72,7 @@ class Admin::ReviewersController < Admin::ApplicationController
         reviews_by_week: reviews_by_week,
         low_week_count: low_weeks
       },
-      notes: @reviewer.reviewer_admin_notes.order(created_at: :desc).map { |n|
+      notes: @reviewer.reviewer_admin_notes.includes(:author).order(created_at: :desc).map { |n|
         { id: n.id, body: n.body, author_name: n.author.display_name, created_at: n.created_at.strftime("%b %d, %Y") }
       },
       unavailabilities: @reviewer.reviewer_unavailabilities.order(starts_on: :asc).map { |u|

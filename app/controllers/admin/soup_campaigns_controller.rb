@@ -5,10 +5,16 @@ class Admin::SoupCampaignsController < Admin::ApplicationController
   skip_after_action :verify_policy_scoped, only: %i[show new create update destroy audience_preview send_campaign test_send cancel toggle_unsubscribe] # non-index actions use authorize
 
   def index
-    campaigns = policy_scope(SoupCampaign).recent.includes(:created_by)
+    campaigns = policy_scope(SoupCampaign).recent.includes(:created_by).to_a
+    # Batch the per-status recipient counts for every campaign into one query instead of
+    # two per campaign (recipient_stats + progress_percent) inside the serialization loop.
+    counts_by_id = {}
+    SoupCampaignRecipient.where(soup_campaign_id: campaigns.map(&:id))
+      .group(:soup_campaign_id, :status).count
+      .each { |(cid, status), n| (counts_by_id[cid] ||= {})[status] = n }
 
     render inertia: "admin/soup_campaigns/index", props: {
-      campaigns: campaigns.map { |c| serialize_campaign(c) }
+      campaigns: campaigns.map { |c| serialize_campaign(c, counts_by_id[c.id] || {}) }
     }
   end
 
@@ -27,12 +33,16 @@ class Admin::SoupCampaignsController < Admin::ApplicationController
       recipients_pagy = pagy_props(pagy)
     end
 
+    # Compute the per-status counts once and reuse for the serialized campaign and the
+    # top-level stats/progress props — previously each was queried twice.
+    status_counts = campaign.soup_campaign_recipients.group(:status).count
+
     render inertia: "admin/soup_campaigns/show", props: {
-      campaign: serialize_campaign(campaign),
+      campaign: serialize_campaign(campaign, status_counts),
       recipients:,
       recipients_pagy:,
-      stats: campaign.recipient_stats,
-      progress: campaign.progress_percent,
+      stats: campaign.recipient_stats(status_counts),
+      progress: campaign.progress_percent(status_counts),
       audience_query_help: audience_query_help
     }
   end
@@ -246,7 +256,7 @@ class Admin::SoupCampaignsController < Admin::ApplicationController
     hours.to_i == hours ? hours.to_i : hours
   end
 
-  def serialize_campaign(campaign)
+  def serialize_campaign(campaign, status_counts = nil)
     {
       id: campaign.id,
       name: campaign.name,
@@ -265,8 +275,8 @@ class Admin::SoupCampaignsController < Admin::ApplicationController
         display_name: campaign.created_by&.display_name,
         avatar: campaign.created_by&.avatar
       },
-      stats: campaign.recipient_stats,
-      progress: campaign.progress_percent
+      stats: campaign.recipient_stats(status_counts),
+      progress: campaign.progress_percent(status_counts)
     }
   end
 

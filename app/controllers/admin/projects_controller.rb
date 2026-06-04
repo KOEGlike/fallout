@@ -35,7 +35,8 @@ class Admin::ProjectsController < Admin::ApplicationController
       include_deleted: params[:include_deleted] == "1",
       hide_unlisted: params[:hide_unlisted] == "1",
       with_journals: params[:with_journals] == "1",
-      total_count: base_scope.count
+      # Without a search, pagy already counted base_scope — reuse it instead of a second COUNT.
+      total_count: params[:query].present? ? base_scope.count : @pagy.count
     }
   end
 

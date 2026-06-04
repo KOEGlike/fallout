@@ -14,12 +14,15 @@ class Admin::FeaturedProjectsController < Admin::ApplicationController
       scope.kept.ordered
     end
 
+    # One grouped query (active vs archived) instead of two separate COUNT(*) queries.
+    state_counts = scope.group(Arel.sql("discarded_at IS NULL")).count
+
     render inertia: "admin/featured_projects/index", props: {
       featured: featured.map { |fp| serialize_admin_featured_project(fp) },
       current_tab: tab,
       counts: {
-        active: scope.kept.count,
-        archived: scope.discarded.count
+        active: state_counts[true].to_i,
+        archived: state_counts[false].to_i
       }
     }
   end

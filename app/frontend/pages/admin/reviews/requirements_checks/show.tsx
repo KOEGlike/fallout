@@ -1119,7 +1119,11 @@ export default function RequirementsChecksShow({
                         <div className="flex items-center gap-2">
                           <ReviewStatusBadge status={r.status} />
                           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
-                            {r.review_type === 'design_review' ? 'Design' : 'RC'}
+                            {r.review_type === 'requirements_check_review'
+                              ? 'RC'
+                              : r.review_type === 'design_review'
+                                ? 'Design'
+                                : 'Build'}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground shrink-0">

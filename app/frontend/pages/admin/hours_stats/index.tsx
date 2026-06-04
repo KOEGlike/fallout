@@ -20,11 +20,11 @@ type Bucket = {
 
 type Props = {
   buckets: Bucket[]
-  cached_at: string
+  computed_at: string
   mode: string
 }
 
-export default function AdminHoursStatsIndex({ buckets, cached_at, mode }: Props) {
+export default function AdminHoursStatsIndex({ buckets, computed_at, mode }: Props) {
   const totalUsers = buckets.reduce((sum, b) => sum + b.users.length, 0)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [copied, setCopied] = useState<string | null>(null)
@@ -57,7 +57,7 @@ export default function AdminHoursStatsIndex({ buckets, cached_at, mode }: Props
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Hours Stats</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {totalUsers} users · last updated {new Date(cached_at).toLocaleString()}
+            {totalUsers} users · computed {new Date(computed_at).toLocaleString()}
           </p>
         </div>
         <div className="flex items-center gap-2">

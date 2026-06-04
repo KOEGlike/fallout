@@ -523,12 +523,6 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
   # Returns [url_or_nil, failure_reason_or_nil] where failure_reason is
   # :not_found or :wrong_mention so callers can surface the right error.
   def resolve_checkpoint_message(slack_id, provided_permalink)
-    if provided_permalink.present?
-      result = SlackCheckpointService.verify_permalink(provided_permalink, slack_id)
-      result == :ok ? [ provided_permalink, nil ] : [ nil, result ]
-    else
-      url = SlackCheckpointService.find_checkpoint_message(slack_id)
-      [ url, url ? nil : :not_found ]
-    end
+    SlackCheckpointService.resolve(slack_id, provided_permalink)
   end
 end
