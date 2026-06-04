@@ -369,10 +369,20 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     "BuildReview" => %i[ hours_pending turnaround approval_ratio ]
   }.freeze
 
+  # Per-step turnaround SLA in days. The frontend flags a P90 turnaround or a row's
+  # cycle wait red once it reaches (>=) this threshold.
+  REVIEW_SLA_DAYS = {
+    "TimeAuditReview" => 3,
+    "RequirementsCheckReview" => 5,
+    "DesignReview" => 7,
+    "BuildReview" => 7
+  }.freeze
+
   def review_stats_props(model)
     keys = REVIEW_STAT_KEYS.fetch(model.name)
     {
       stats_keys: keys,
+      sla_days: REVIEW_SLA_DAYS.fetch(model.name),
       stats: InertiaRails.defer { compute_review_stats(model, include: keys) }
     }
   end

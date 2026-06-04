@@ -1,8 +1,11 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/admin/ui/tooltip'
 
+function waitDays(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24))
+}
+
 function formatWaitDuration(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
+  const days = waitDays(iso)
   if (days < 1) return '<1d'
   return `${days}d`
 }
@@ -22,20 +25,24 @@ export function WaitingLabel({
   waitingSince,
   cycleStartedAt,
   prefix = true,
+  slaDays,
 }: {
   waitingSince: string
   cycleStartedAt: string | null
   prefix?: boolean
+  slaDays?: number
 }) {
   const ship = formatWaitDuration(waitingSince)
   const cycle = cycleStartedAt ? formatWaitDuration(cycleStartedAt) : null
+  // Red once the cycle wait (ship wait when no cycle start) reaches the SLA (breach).
+  const breached = slaDays != null && waitDays(cycleStartedAt ?? waitingSince) >= slaDays
   return (
     <TooltipProvider>
-      <span>
+      <span className={breached ? 'text-red-700 dark:text-red-400' : undefined}>
         {prefix && 'Waiting '}
         <DurationValue value={ship} label="This ship" />
         {cycle && cycle !== ship && (
-          <span className="text-muted-foreground ml-1">
+          <span className={`ml-1 ${breached ? '' : 'text-muted-foreground'}`}>
             (<DurationValue value={cycle} label="This cycle" />)
           </span>
         )}

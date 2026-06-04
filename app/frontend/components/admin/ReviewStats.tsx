@@ -62,7 +62,7 @@ function fmtPct(p: number | null) {
 // Each card renderer accepts the (possibly undefined) stat slice and falls back
 // to "—". The skeleton state reuses the same card structure so no CLS when the
 // deferred payload lands — only the inner text swaps.
-function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
+function renderCard(key: ReviewStatKey, stats?: ReviewStats, slaDays?: number) {
   switch (key) {
     case 'hours_pending': {
       const v = stats?.hours_pending?.value
@@ -74,10 +74,12 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
     }
     case 'turnaround': {
       const t = stats?.turnaround
+      // Red once the P90 wait reaches the queue's SLA (breach).
+      const breached = slaDays != null && t?.ship_days != null && t.ship_days >= slaDays
       return (
         <StatCard key={key} label="P90 Turnaround (7d)" description="90th-pct wait, includes pending backlog">
           <TooltipProvider>
-            <span>
+            <span className={breached ? 'text-red-700 dark:text-red-400' : undefined}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="cursor-default">{fmtDays(t?.ship_days ?? null)}</span>
@@ -146,7 +148,15 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
   }
 }
 
-export function ReviewStatsHeader({ stats_keys, stats }: { stats_keys: ReviewStatKey[]; stats?: ReviewStats }) {
+export function ReviewStatsHeader({
+  stats_keys,
+  stats,
+  sla_days,
+}: {
+  stats_keys: ReviewStatKey[]
+  stats?: ReviewStats
+  sla_days?: number
+}) {
   if (stats_keys.length === 0) return null
 
   // Tailwind JIT can't compile interpolated class names, so map count → literal classes.
@@ -154,6 +164,8 @@ export function ReviewStatsHeader({ stats_keys, stats }: { stats_keys: ReviewSta
     stats_keys.length === 1 ? 'sm:grid-cols-1' : stats_keys.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
 
   return (
-    <div className={`grid grid-cols-1 ${gridClass} gap-3 mb-4`}>{stats_keys.map((key) => renderCard(key, stats))}</div>
+    <div className={`grid grid-cols-1 ${gridClass} gap-3 mb-4`}>
+      {stats_keys.map((key) => renderCard(key, stats, sla_days))}
+    </div>
   )
 }
