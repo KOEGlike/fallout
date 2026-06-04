@@ -514,7 +514,7 @@ export default function BuildReviewsShow({
     review.hours_adjustment != null ? String(review.hours_adjustment / 3600) : '',
   )
   const [goldAdjInput, setGoldAdjInput] = useState(review.gold_adjustment != null ? String(review.gold_adjustment) : '')
-  const [demoLinkInput, setDemoLinkInput] = useState(project.demo_link ?? '')
+  const [demoLinkInput, setDemoLinkInput] = useState(project.demo_link || project.demo_video_link || '')
   const [submitting, setSubmitting] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const [flagging, setFlagging] = useState(false)

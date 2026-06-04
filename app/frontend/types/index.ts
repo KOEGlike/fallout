@@ -472,6 +472,7 @@ export interface ReviewProjectContext {
   description: string | null
   repo_link: string | null
   demo_link: string | null
+  demo_video_link: string | null
   user_id: number
   user_display_name: string
   user_avatar: string

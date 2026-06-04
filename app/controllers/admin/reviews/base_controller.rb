@@ -235,6 +235,7 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
       description: project.description,
       repo_link: project.repo_link,
       demo_link: project.demo_link,
+      demo_video_link: project.demo_video_link,
       tags: project.tags,
       created_at: project.created_at.strftime("%b %d, %Y"),
       user_id: project.user_id,
