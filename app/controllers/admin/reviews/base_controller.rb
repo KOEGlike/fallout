@@ -428,10 +428,12 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     current.merge(ship_delta: ship_delta, cycle_delta: cycle_delta)
   end
 
-  # Returns { ship_days:, cycle_days:, count: }. Pluck (completion_at, ship_id)
-  # instead of loading full review rows — review tables carry a jsonb annotations
-  # column we don't need here. Ships are loaded once by id and run through
-  # Ship.preload_cycle_started_at to hit the shared Rails.cache.
+  # Returns { ship_days:, cycle_days:, count: } where ship_days/cycle_days are the
+  # P90 (90th percentile) turnaround, not the mean — the mean is dragged down by
+  # the bulk of fast reviews and hides the long-tail waits we actually care about.
+  # Pluck (completion_at, ship_id) instead of loading full review rows — review
+  # tables carry a jsonb annotations column we don't need here. Ships are loaded
+  # once by id and run through Ship.preload_cycle_started_at to hit the shared cache.
   #
   # Status filter uses the positive set (decided enum values) so Postgres can hit
   # the status index directly instead of NOT-IN'ing pending+cancelled.
@@ -445,20 +447,31 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     ships_by_id = Ship.where(id: pairs.map(&:last).uniq).index_by(&:id)
     Ship.preload_cycle_started_at(ships_by_id.values)
 
-    ship_sum = 0.0
-    cycle_sum = 0.0
+    ship_secs = []
+    cycle_secs = []
     pairs.each do |completed, ship_id|
       ship = ships_by_id[ship_id]
       next unless ship && completed
-      ship_sum += completed - ship.created_at
-      cycle_sum += completed - ship.cycle_started_at
+      ship_secs << completed - ship.created_at
+      cycle_secs << completed - ship.cycle_started_at
     end
-    count = pairs.size
     {
-      ship_days: (ship_sum / count / 86_400.0).round(1),
-      cycle_days: (cycle_sum / count / 86_400.0).round(1),
-      count: count
+      ship_days: percentile(ship_secs, 0.9)&.then { |s| (s / 86_400.0).round(1) },
+      cycle_days: percentile(cycle_secs, 0.9)&.then { |s| (s / 86_400.0).round(1) },
+      count: ship_secs.size
     }
+  end
+
+  # Linear-interpolated percentile (matches Postgres percentile_cont). Returns nil
+  # for an empty set.
+  def percentile(values, fraction)
+    return nil if values.empty?
+    sorted = values.sort
+    return sorted.first if sorted.size == 1
+    rank = fraction * (sorted.size - 1)
+    lower = sorted[rank.floor]
+    upper = sorted[rank.ceil]
+    lower + (upper - lower) * (rank - rank.floor)
   end
 
   def stat_approval_ratio(model, completion_col, current_window, prior_window)

@@ -75,7 +75,7 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
     case 'turnaround': {
       const t = stats?.turnaround
       return (
-        <StatCard key={key} label="Turnaround (7d)" description="wait time for reviewed projects">
+        <StatCard key={key} label="P90 Turnaround (7d)" description="90th-percentile wait time for reviewed projects">
           <TooltipProvider>
             <span>
               <Tooltip>
