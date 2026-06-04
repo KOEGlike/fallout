@@ -257,10 +257,20 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
 
   def serialize_sibling_statuses(ship)
     {
-      time_audit: ship.time_audit_review&.status,
-      requirements_check: ship.requirements_check_review&.status,
-      design_review: ship.design_review&.status,
-      build_review: ship.build_review&.status
+      time_audit: serialize_sibling_review(ship.time_audit_review, "time_audits"),
+      requirements_check: serialize_sibling_review(ship.requirements_check_review, "requirements_checks"),
+      design_review: serialize_sibling_review(ship.design_review, "design_reviews"),
+      build_review: serialize_sibling_review(ship.build_review, "build_reviews")
+    }
+  end
+
+  def serialize_sibling_review(review, path_segment)
+    return { status: nil, reviewer: nil, path: nil } unless review
+
+    {
+      status: review.status,
+      reviewer: review.reviewer&.display_name,
+      path: "/admin/reviews/#{path_segment}/#{review.id}"
     }
   end
 

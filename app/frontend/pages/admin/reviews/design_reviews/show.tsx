@@ -54,7 +54,8 @@ import type {
   RepoTreeData,
   RequirementsCheckProjectContext,
   ReviewerNote,
-  SiblingStatuses,
+  SiblingReview,
+  SiblingReviews,
   PreviousReview,
 } from '@/types'
 
@@ -80,18 +81,26 @@ function isSafeUrl(url: string | null | undefined): boolean {
   }
 }
 
-function SiblingBadge({ label, status }: { label: string; status: string | null }) {
-  if (!status) return null
+function SiblingBadge({ label, review }: { label: string; review: SiblingReview }) {
+  if (!review.status) return null
   const color =
-    status === 'approved'
+    review.status === 'approved'
       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-      : status === 'returned' || status === 'rejected'
+      : review.status === 'returned' || review.status === 'rejected'
         ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
         : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-  return (
+  const badge = (
     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${color}`}>
-      {label}: {status}
+      {label}: {review.status}
+      {review.reviewer && ` (${review.reviewer})`}
     </span>
+  )
+  return review.path ? (
+    <Link href={review.path} className="hover:underline">
+      {badge}
+    </Link>
+  ) : (
+    badge
   )
 }
 
@@ -595,7 +604,7 @@ interface PageProps {
   project: RequirementsCheckProjectContext
   new_entries: RequirementsCheckJournalEntry[]
   previous_entries: RequirementsCheckJournalEntry[]
-  sibling_statuses: SiblingStatuses
+  sibling_statuses: SiblingReviews
   previous_reviews: PreviousReview[]
   repo_tree?: RepoTreeData | null
   reviewer_notes?: ReviewerNote[]
@@ -1034,10 +1043,10 @@ export default function DesignReviewsShow({
               {/* Sibling review statuses */}
               <div className="px-3 py-2 border-t border-border flex items-center gap-3 text-xs">
                 <span className="text-muted-foreground">Reviews:</span>
-                <SiblingBadge label="Time Audit" status={sibling_statuses.time_audit} />
-                <SiblingBadge label="Requirements" status={sibling_statuses.requirements_check} />
-                <SiblingBadge label="Design" status={sibling_statuses.design_review} />
-                <SiblingBadge label="Build" status={sibling_statuses.build_review} />
+                <SiblingBadge label="Time Audit" review={sibling_statuses.time_audit} />
+                <SiblingBadge label="Requirements" review={sibling_statuses.requirements_check} />
+                <SiblingBadge label="Design" review={sibling_statuses.design_review} />
+                <SiblingBadge label="Build" review={sibling_statuses.build_review} />
               </div>
             </div>
 

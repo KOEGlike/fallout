@@ -584,6 +584,19 @@ export interface SiblingStatuses {
   build_review: string | null
 }
 
+export interface SiblingReview {
+  status: string | null
+  reviewer: string | null
+  path: string | null
+}
+
+export interface SiblingReviews {
+  time_audit: SiblingReview
+  requirements_check: SiblingReview
+  design_review: SiblingReview
+  build_review: SiblingReview
+}
+
 export interface RecordingSummary {
   id: number
   name: string

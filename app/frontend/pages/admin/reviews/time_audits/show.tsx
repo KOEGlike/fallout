@@ -61,7 +61,7 @@ import type {
   ReviewRecording,
   ReviewProjectContext,
   ReviewerNote,
-  SiblingStatuses,
+  SiblingReviews,
 } from '@/types'
 
 function formatDuration(seconds: number): string {
@@ -1661,7 +1661,7 @@ interface PageProps {
   project: ReviewProjectContext
   new_entries: ReviewJournalEntry[]
   previous_entries: ReviewJournalEntry[]
-  sibling_statuses: SiblingStatuses
+  sibling_statuses: SiblingReviews
   reviewer_notes?: ReviewerNote[]
   reviewer_notes_path: string
   project_flagged: boolean
