@@ -205,15 +205,21 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     }
   end
 
-  def precompute_previously_reviewed_project_ids
+  # Scoped to the project_ids actually on the page — the result is only ever used to set a
+  # per-row badge, so bounding the IN clause to the loaded rows keeps these two plucks small
+  # instead of scanning the reviewer's entire lifetime of reviews on every index load.
+  def precompute_previously_reviewed_project_ids(project_ids)
+    return Set.new if project_ids.blank?
     rc_ids = RequirementsCheckReview
       .where(reviewer_id: current_user.id, status: %i[approved returned rejected])
       .joins(:ship)
+      .where(ships: { project_id: project_ids })
       .distinct
       .pluck("ships.project_id")
     dr_ids = DesignReview
       .where(reviewer_id: current_user.id, status: %i[approved returned rejected])
       .joins(:ship)
+      .where(ships: { project_id: project_ids })
       .distinct
       .pluck("ships.project_id")
     (rc_ids + dr_ids).to_set
@@ -387,17 +393,18 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     }
   end
 
-  # Cache key is bumped whenever any review of this type is touched (max updated_at).
-  # Means a freshly-submitted review invalidates the cache on the next index load
-  # without per-row tracking. Falls back to a fixed key when the table is empty.
+  # Cache key combines MAX(completed_at) with the row count. Deliberately NOT keyed on
+  # updated_at: atomic_claim! writes updated_at on every claim, so an updated_at key
+  # busted the cache every time a reviewer opened a show page — forcing the heavy stat
+  # recompute on nearly every index load. completed_at only moves on terminal transitions,
+  # and the count catches freshly-submitted (still-pending) reviews the pending-inclusive
+  # stats count — so real changes invalidate while claims don't. Falls back to "0-0" when empty.
   #
-  # Perf: MAX(updated_at) without an index does a sequential scan; on current
-  # data sizes (low thousands of reviews) this is sub-millisecond. If the tables
-  # grow significantly, add an index on updated_at or switch to TTL-only invalidation.
+  # Perf: completed_at is indexed on all four tables, and COUNT(*) is a cheap aggregate.
   def compute_review_stats(model, include:)
-    cache_stamp = model.maximum(:updated_at)&.to_i || 0
+    cache_stamp = "#{model.maximum(:completed_at)&.to_i || 0}-#{model.count}"
     Rails.cache.fetch(
-      "admin/reviews/stats/#{model.name}/v2/#{include.join(',')}/#{cache_stamp}",
+      "admin/reviews/stats/#{model.name}/v3/#{include.join(',')}/#{cache_stamp}",
       expires_in: STATS_CACHE_TTL
     ) do
       build_review_stats(model, include)
