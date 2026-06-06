@@ -202,7 +202,6 @@ function CollapsibleCard({
     }
     return defaultOpen
   })
-  const bodyRef = useRef<HTMLDivElement>(null)
   const toggle = () =>
     setOpen((v) => {
       const next = !v
@@ -213,25 +212,6 @@ function CollapsibleCard({
       }
       return next
     })
-
-  useEffect(() => {
-    const el = bodyRef.current
-    if (!el) return
-    if (open) {
-      el.style.maxHeight = el.scrollHeight + 'px'
-      const onEnd = () => {
-        el.style.maxHeight = 'none'
-      }
-      el.addEventListener('transitionend', onEnd, { once: true })
-      return () => el.removeEventListener('transitionend', onEnd)
-    } else {
-      if (el.style.maxHeight === 'none' || el.style.maxHeight === '') {
-        el.style.maxHeight = el.scrollHeight + 'px'
-        el.getBoundingClientRect()
-      }
-      el.style.maxHeight = '0px'
-    }
-  }, [open])
 
   return (
     <div className={`rounded-md border overflow-hidden ${borderClass || 'border-border'}`}>
@@ -245,20 +225,10 @@ function CollapsibleCard({
         {!summary && <span className="flex-1" />}
         {trailing}
         <ChevronDownIcon
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-500 ${open ? '' : '-rotate-90'}`}
-          style={{ transitionTimingFunction: 'cubic-bezier(0.19, 1, 0.22, 1)' }}
+          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`}
         />
       </button>
-      <div
-        ref={bodyRef}
-        style={{
-          maxHeight: open ? 'none' : '0px',
-          overflow: 'hidden',
-          transition: 'max-height 500ms cubic-bezier(0.19, 1, 0.22, 1)',
-        }}
-      >
-        {children}
-      </div>
+      {open && children}
     </div>
   )
 }
