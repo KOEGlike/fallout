@@ -139,8 +139,7 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
       approved_public_seconds: review.approved_public_seconds,
       annotations: review.annotations,
       reviewer_display_name: review.reviewer&.display_name,
-      created_at: review.created_at.strftime("%B %d, %Y"),
-      undoable: %w[approved returned rejected].include?(review.status) && (review.completed_at || review.updated_at) >= UNDO_WINDOW.ago
+      created_at: review.created_at.strftime("%B %d, %Y")
     }
   end
 

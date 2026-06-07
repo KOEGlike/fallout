@@ -404,7 +404,6 @@ export interface TimeAuditReviewDetail {
   annotations: TimeAuditAnnotations | null
   reviewer_display_name: string | null
   created_at: string
-  undoable: boolean
 }
 
 export interface TimeAuditAnnotations {
@@ -617,7 +616,6 @@ export interface RequirementsCheckReviewDetail {
   preflight_results: PreflightCheck[] | null
   created_at: string
   checkpoint_message_url: string | null
-  undoable: boolean
 }
 
 export interface DesignReviewDetail {
@@ -635,7 +633,6 @@ export interface DesignReviewDetail {
   preflight_results: PreflightCheck[] | null
   created_at: string
   checkpoint_message_url: string | null
-  undoable: boolean
 }
 
 export interface BuildReviewDetail {
@@ -652,5 +649,4 @@ export interface BuildReviewDetail {
   user_display_name: string
   preflight_results: PreflightCheck[] | null
   created_at: string
-  undoable: boolean
 }

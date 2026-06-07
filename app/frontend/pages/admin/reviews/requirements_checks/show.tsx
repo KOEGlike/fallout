@@ -7,7 +7,6 @@ import ReviewLayout from '@/layouts/ReviewLayout'
 import HoursDisplay from '@/components/admin/HoursDisplay'
 import { WaitingLabel } from '@/components/admin/WaitingLabel'
 import { ReviewStatusBadge } from '@/components/admin/ReviewStatusBadge'
-import { UndoReviewButton } from '@/components/admin/UndoReviewButton'
 import { ShortcutHelpDialog, type ShortcutEntry } from '@/components/admin/ShortcutHelpDialog'
 import { Badge } from '@/components/admin/ui/badge'
 import { Button } from '@/components/admin/ui/button'
@@ -1075,9 +1074,6 @@ export default function RequirementsChecksShow({
                     {review.reviewer_display_name && (
                       <span className="text-xs text-muted-foreground">by {review.reviewer_display_name}</span>
                     )}
-                    {review.undoable && (
-                      <UndoReviewButton reviewId={review.id} reviewType="requirements_check_review" />
-                    )}
                   </div>
                   {review.internal_reason && (
                     <p className="text-xs text-muted-foreground whitespace-pre-wrap">
@@ -1218,7 +1214,7 @@ export default function RequirementsChecksShow({
               <>
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Review Complete</h3>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <Badge
                       className={
                         review.status === 'approved'
@@ -1234,9 +1230,6 @@ export default function RequirementsChecksShow({
                     </Badge>
                     {review.reviewer_display_name && (
                       <p className="text-xs text-muted-foreground">by {review.reviewer_display_name}</p>
-                    )}
-                    {review.undoable && (
-                      <UndoReviewButton reviewId={review.id} reviewType="requirements_check_review" />
                     )}
                   </div>
                   {review.internal_reason && (
