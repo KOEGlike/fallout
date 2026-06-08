@@ -579,11 +579,16 @@ export interface PreviousReview {
   reviewed_at: string
 }
 
+export interface SiblingStatus {
+  status: string | null
+  id: number | null
+}
+
 export interface SiblingStatuses {
-  time_audit: string | null
-  requirements_check: string | null
-  design_review: string | null
-  build_review: string | null
+  time_audit: SiblingStatus
+  requirements_check: SiblingStatus
+  design_review: SiblingStatus
+  build_review: SiblingStatus
 }
 
 export interface SiblingReview {

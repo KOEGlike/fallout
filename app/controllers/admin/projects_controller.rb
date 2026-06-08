@@ -144,12 +144,7 @@ class Admin::ProjectsController < Admin::ApplicationController
       status: ship.status,
       approved_public_hours: public_hrs,
       approved_internal_hours: internal_hrs,
-      review_statuses: {
-        time_audit: ship.time_audit_review&.status,
-        requirements_check: ship.requirements_check_review&.status,
-        design_review: ship.design_review&.status,
-        build_review: ship.build_review&.status
-      },
+      review_statuses: review_statuses_payload(ship),
       created_at: ship.created_at.strftime("%b %d, %Y")
     }
   end

@@ -23,7 +23,7 @@ import AuditLog, { AuditLogLoading } from '@/components/admin/AuditLog'
 import type { AuditLogEntry } from '@/components/admin/AuditLog'
 import { ChevronLeftIcon, ExternalLinkIcon, ClockIcon, StarIcon } from 'lucide-react'
 import { useLiveReload } from '@/lib/useLiveReload'
-import type { AdminProjectDetail, PagyProps, SiblingStatuses, SharedProps } from '@/types'
+import type { AdminProjectDetail, PagyProps, SiblingStatus, SiblingStatuses, SharedProps } from '@/types'
 
 function BurnoutToggle({ projectId, isBurnout }: { projectId: number; isBurnout: boolean }) {
   const [saving, setSaving] = useState(false)
@@ -160,7 +160,8 @@ const statusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
   returned: 'outline',
 }
 
-function StepBadge({ label, status }: { label: string; status: string | null }) {
+function StepBadge({ label, review, path }: { label: string; review: SiblingStatus; path: string }) {
+  const { status, id } = review
   if (!status) return null
   const color =
     status === 'approved'
@@ -170,11 +171,16 @@ function StepBadge({ label, status }: { label: string; status: string | null }) 
         : status === 'cancelled'
           ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500'
           : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-  return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${color}`}>
-      {label}: {status}
-    </span>
-  )
+  const className = `px-1.5 py-0.5 rounded text-[10px] font-medium ${color}`
+  const text = `${label}: ${status}`
+  if (id && (status === 'pending' || status === 'approved')) {
+    return (
+      <Link href={`/admin/reviews/${path}/${id}`} className={`${className} hover:underline`}>
+        {text}
+      </Link>
+    )
+  }
+  return <span className={className}>{text}</span>
 }
 
 const shipColumns: ColumnDef<ShipRow>[] = [
@@ -196,10 +202,10 @@ const shipColumns: ColumnDef<ShipRow>[] = [
       if (showSteps) {
         return (
           <div className="flex flex-wrap gap-1">
-            <StepBadge label="TA" status={review_statuses.time_audit} />
-            <StepBadge label="RC" status={review_statuses.requirements_check} />
-            <StepBadge label="Design" status={review_statuses.design_review} />
-            <StepBadge label="Build" status={review_statuses.build_review} />
+            <StepBadge label="TA" review={review_statuses.time_audit} path="time_audits" />
+            <StepBadge label="RC" review={review_statuses.requirements_check} path="requirements_checks" />
+            <StepBadge label="Design" review={review_statuses.design_review} path="design_reviews" />
+            <StepBadge label="Build" review={review_statuses.build_review} path="build_reviews" />
           </div>
         )
       }

@@ -109,4 +109,14 @@ class Admin::ApplicationController < ApplicationController
     str = value.is_a?(Array) ? value.join(", ") : value.to_s
     str.truncate(80)
   end
+
+  # Status + id per review step so the admin UI can deep-link to each review.
+  def review_statuses_payload(ship)
+    {
+      time_audit: { status: ship.time_audit_review&.status, id: ship.time_audit_review&.id },
+      requirements_check: { status: ship.requirements_check_review&.status, id: ship.requirements_check_review&.id },
+      design_review: { status: ship.design_review&.status, id: ship.design_review&.id },
+      build_review: { status: ship.build_review&.status, id: ship.build_review&.id }
+    }
+  end
 end

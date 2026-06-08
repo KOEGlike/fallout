@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from '@inertiajs/react'
 import AdminLayout from '@/layouts/AdminLayout'
 import { Badge } from '@/components/admin/ui/badge'
 import { Card, CardContent } from '@/components/admin/ui/card'
@@ -25,11 +26,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-const STEPS: { key: keyof SiblingStatuses; label: string; short: string }[] = [
-  { key: 'time_audit', label: 'Time Audit', short: 'TA' },
-  { key: 'requirements_check', label: 'Requirements Check', short: 'RC' },
-  { key: 'design_review', label: 'Design Review', short: 'Design' },
-  { key: 'build_review', label: 'Build Review', short: 'Build' },
+const STEPS: { key: keyof SiblingStatuses; label: string; short: string; path: string }[] = [
+  { key: 'time_audit', label: 'Time Audit', short: 'TA', path: 'time_audits' },
+  { key: 'requirements_check', label: 'Requirements Check', short: 'RC', path: 'requirements_checks' },
+  { key: 'design_review', label: 'Design Review', short: 'Design', path: 'design_reviews' },
+  { key: 'build_review', label: 'Build Review', short: 'Build', path: 'build_reviews' },
 ]
 
 function stepIcon(status: string | null) {
@@ -65,17 +66,27 @@ function stepColor(status: string | null) {
 function ReviewPipeline({ statuses }: { statuses: SiblingStatuses }) {
   return (
     <div className="flex items-stretch gap-1">
-      {STEPS.map(({ key, label, short }, i) => {
-        const status = statuses[key]
+      {STEPS.map(({ key, label, short, path }, i) => {
+        const { status, id } = statuses[key]
+        const inner = (
+          <>
+            {stepIcon(status)}
+            <span className="font-medium hidden sm:inline">{label}</span>
+            <span className="font-medium sm:hidden">{short}</span>
+            {status && <span className="capitalize text-muted-foreground">{status}</span>}
+          </>
+        )
+        const className = `flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs ${stepColor(status)}`
         return (
           <div key={key} className="flex items-center gap-1">
             {i > 0 && <div className="w-3 h-px bg-border shrink-0" />}
-            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs ${stepColor(status)}`}>
-              {stepIcon(status)}
-              <span className="font-medium hidden sm:inline">{label}</span>
-              <span className="font-medium sm:hidden">{short}</span>
-              {status && <span className="capitalize text-muted-foreground">{status}</span>}
-            </div>
+            {id ? (
+              <Link href={`/admin/reviews/${path}/${id}`} className={`${className} hover:brightness-95 transition`}>
+                {inner}
+              </Link>
+            ) : (
+              <div className={className}>{inner}</div>
+            )}
           </div>
         )
       })}
