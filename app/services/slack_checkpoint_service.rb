@@ -65,6 +65,19 @@ class SlackCheckpointService
     :not_found
   end
 
+  # Resolves a verified checkpoint message URL for the project owner. If a permalink is
+  # provided it is verified, otherwise the channel history is searched. Returns
+  # [url_or_nil, failure_reason_or_nil] where failure_reason is :not_found or :wrong_mention.
+  def self.resolve(slack_id, provided_permalink)
+    if provided_permalink.present?
+      result = verify_permalink(provided_permalink, slack_id)
+      result == :ok ? [ provided_permalink, nil ] : [ nil, result ]
+    else
+      url = find_checkpoint_message(slack_id)
+      [ url, url ? nil : :not_found ]
+    end
+  end
+
   # Posts a thread reply on the checkpoint message summarising the review outcome.
   # Only two blocks are sent: a plan block (timeline) and a card block (project info).
   # Tasks with pending/in_progress status are omitted — only complete and error are shown.

@@ -16,7 +16,7 @@ module ShipChecks
 
       extensions = tree.map { |p| File.extname(p).downcase }
       has_kicad = %w[.kicad_pro .kicad_sch .kicad_pcb].all? { |ext| extensions.include?(ext) }
-      has_easyeda = extensions.include?(".epro")
+      has_easyeda = extensions.include?(".epro") || extensions.include?(".epro2")
       passed = has_kicad || has_easyeda
       ShipCheckService::CheckResult.new(
         key: "has_pcb_files",

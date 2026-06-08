@@ -1,5 +1,5 @@
-import * as react_jsx_runtime from 'react/jsx-runtime';
-import React, { ReactNode } from 'react';
+import * as React from 'react';
+import React__default, { ReactNode } from 'react';
 import { SessionStatus, SessionResponse, UploadUrlResponse, ConfirmScreenshotRequest, ConfirmScreenshotResponse, PauseResponse, ResumeResponse, StopResponse, RenameSessionResponse, StatusResponse, VideoResponse, SessionSummary } from '@lookout/shared';
 export { SESSION_STATUSES, SessionStatus, SessionSummary } from '@lookout/shared';
 
@@ -106,6 +106,9 @@ interface LookoutConfig {
     statusPollIntervalMs?: number;
     /** Auto-start screen sharing on mount. Default: false */
     autoStart?: boolean;
+    /** Name of the host program embedding Lookout, e.g. "Fallout". Reported in
+     *  client telemetry as "Lookout Web (Fallout)". Optional. */
+    appName?: string;
 }
 interface ResolvedConfig {
     token: TokenProvider;
@@ -126,9 +129,17 @@ interface LookoutState {
     isSharing: boolean;
     /** True when actively capturing (sharing + pending/active). Convenience for UI logic. */
     isRecording: boolean;
-    /** Best-known tracked seconds (max of server, upload confirms, and local estimate). */
+    /** Server-authoritative tracked seconds — max of session state and the
+     *  value returned by the last upload confirm. Bounded by what the
+     *  server has actually credited; never inflated by client-side
+     *  estimation. */
     trackedSeconds: number;
-    /** Client-interpolated display seconds (smooth ticking, monotonic). */
+    /** Client-interpolated display seconds. Ticks every second via RAF
+     *  using `trackedSeconds + min(60, elapsed_since_last_sync)`, so the
+     *  display can never overshoot the next credit by more than one
+     *  capture interval. Monotonic via baseRef ratchet. Snaps to the
+     *  server value on pause/stop so stop/compile reveals at most a 60s
+     *  drop, never the full session length. */
     displaySeconds: number;
     /** Number of confirmed screenshots. */
     screenshotCount: number;
@@ -193,13 +204,16 @@ interface LookoutClient {
 interface CreateClientOptions {
     baseUrl: string;
     token: TokenProvider;
+    /** Free-form client telemetry string attached to every upload-url request
+     *  (server query param `clientInfo`). Optional. */
+    clientInfo?: string;
 }
 declare function createLookoutClient(options: CreateClientOptions): LookoutClient;
 
 interface LookoutProviderProps extends LookoutConfig {
     children: ReactNode;
 }
-declare function LookoutProvider({ children, ...config }: LookoutProviderProps): react_jsx_runtime.JSX.Element;
+declare function LookoutProvider({ children, ...config }: LookoutProviderProps): React.JSX.Element;
 
 /**
  * Drop-in recorder widget. Handles the full lifecycle:
@@ -211,14 +225,14 @@ declare function LookoutProvider({ children, ...config }: LookoutProviderProps):
  *
  * Must be used within a `<LookoutProvider>`.
  */
-declare function LookoutRecorder(): react_jsx_runtime.JSX.Element;
+declare function LookoutRecorder(): React__default.JSX.Element;
 
 interface StatusBarProps {
     displaySeconds: number;
     screenshotCount: number;
     uploads: UploadState;
 }
-declare function StatusBar({ displaySeconds, screenshotCount, uploads }: StatusBarProps): react_jsx_runtime.JSX.Element;
+declare function StatusBar({ displaySeconds, screenshotCount, uploads }: StatusBarProps): React__default.JSX.Element;
 
 interface RecordingControlsProps {
     status: RecorderStatus;
@@ -231,12 +245,12 @@ interface RecordingControlsProps {
     /** Capture mode — adjusts button labels. Defaults to "screen". */
     captureMode?: CaptureMode;
 }
-declare function RecordingControls({ status, isSharing, onStartSharing, onPause, onResume, onStop, loading, captureMode, }: RecordingControlsProps): react_jsx_runtime.JSX.Element;
+declare function RecordingControls({ status, isSharing, onStartSharing, onPause, onResume, onStop, loading, captureMode, }: RecordingControlsProps): React__default.JSX.Element;
 
 interface ScreenPreviewProps {
     imageUrl: string | null;
 }
-declare function ScreenPreview({ imageUrl }: ScreenPreviewProps): react_jsx_runtime.JSX.Element | null;
+declare function ScreenPreview({ imageUrl }: ScreenPreviewProps): React__default.JSX.Element | null;
 
 interface CameraSelectorProps {
     devices: MediaDeviceInfo[];
@@ -244,7 +258,7 @@ interface CameraSelectorProps {
     onSelect: (deviceId: string) => void;
     disabled?: boolean;
 }
-declare function CameraSelector({ devices, selectedDeviceId, onSelect, disabled, }: CameraSelectorProps): react_jsx_runtime.JSX.Element | null;
+declare function CameraSelector({ devices, selectedDeviceId, onSelect, disabled, }: CameraSelectorProps): React__default.JSX.Element | null;
 
 interface CameraPreviewProps {
     /** Live camera MediaStream to display. Shows nothing when null. */
@@ -256,13 +270,13 @@ interface CameraPreviewProps {
  * Live camera preview using a `<video>` element.
  * Falls back to a static image when no stream is provided.
  */
-declare function CameraPreview({ stream, fallbackImageUrl }: CameraPreviewProps): react_jsx_runtime.JSX.Element | null;
+declare function CameraPreview({ stream, fallbackImageUrl }: CameraPreviewProps): React__default.JSX.Element | null;
 
 interface ResultViewProps {
     status: RecorderStatus;
     trackedSeconds: number;
 }
-declare function ResultView({ status, trackedSeconds }: ResultViewProps): react_jsx_runtime.JSX.Element;
+declare function ResultView({ status, trackedSeconds }: ResultViewProps): React__default.JSX.Element;
 
 interface ProcessingStateProps {
     status: string;
@@ -271,12 +285,12 @@ interface ProcessingStateProps {
     error?: string | null;
     onVideoLoaded?: () => void;
 }
-declare function ProcessingState({ status, trackedSeconds, videoUrl, error, onVideoLoaded }: ProcessingStateProps): react_jsx_runtime.JSX.Element;
+declare function ProcessingState({ status, trackedSeconds, videoUrl, error, onVideoLoaded }: ProcessingStateProps): React__default.JSX.Element;
 
 interface VideoPlayerProps {
     src: string;
 }
-declare function VideoPlayer({ src }: VideoPlayerProps): react_jsx_runtime.JSX.Element;
+declare function VideoPlayer({ src }: VideoPlayerProps): React__default.JSX.Element;
 
 interface GalleryProps {
     sessions: SessionSummary[];
@@ -288,14 +302,14 @@ interface GalleryProps {
     onAdd?: () => void;
     onSettings?: () => void;
 }
-declare function Gallery({ sessions, loading, error, onSessionClick, onArchive, onRefresh, onAdd, onSettings, }: GalleryProps): react_jsx_runtime.JSX.Element;
+declare function Gallery({ sessions, loading, error, onSessionClick, onArchive, onRefresh, onAdd, onSettings, }: GalleryProps): React__default.JSX.Element;
 
 interface SessionCardProps {
     session: SessionSummary;
     onClick?: () => void;
     onArchive?: () => void;
 }
-declare function SessionCard({ session, onClick, onArchive }: SessionCardProps): react_jsx_runtime.JSX.Element;
+declare function SessionCard({ session, onClick, onArchive }: SessionCardProps): React__default.JSX.Element;
 
 interface SessionDetailProps {
     token: string;
@@ -303,7 +317,7 @@ interface SessionDetailProps {
     onBack?: () => void;
     onArchive?: () => void;
 }
-declare function SessionDetail({ token, apiBaseUrl, onBack, onArchive, }: SessionDetailProps): react_jsx_runtime.JSX.Element;
+declare function SessionDetail({ token, apiBaseUrl, onBack, onArchive, }: SessionDetailProps): React.JSX.Element;
 
 /**
  * Primary hook for Lookout integration.
@@ -486,26 +500,26 @@ declare function useHashRouter(): {
     navigate: (r: Route) => void;
 };
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends React__default.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: "primary" | "success" | "danger" | "warning" | "secondary" | "ghost";
     size?: "sm" | "md" | "lg";
     loading?: boolean;
     fullWidth?: boolean;
 }
-declare function Button({ variant, size, loading, fullWidth, disabled, children, style, ...rest }: ButtonProps): react_jsx_runtime.JSX.Element;
+declare function Button({ variant, size, loading, fullWidth, disabled, children, style, ...rest }: ButtonProps): React__default.JSX.Element;
 
 interface SpinnerProps {
     size?: "sm" | "md" | "lg";
     color?: string;
 }
-declare function Spinner({ size, color }: SpinnerProps): react_jsx_runtime.JSX.Element;
+declare function Spinner({ size, color }: SpinnerProps): React__default.JSX.Element;
 
 interface BadgeProps {
     status: string;
     variant?: "overlay" | "inline";
     size?: "sm" | "md" | "lg";
 }
-declare function Badge({ status, variant, size }: BadgeProps): react_jsx_runtime.JSX.Element;
+declare function Badge({ status, variant, size }: BadgeProps): React__default.JSX.Element;
 
 interface ErrorDisplayProps {
     error: string;
@@ -518,35 +532,35 @@ interface ErrorDisplayProps {
         onClick: () => void;
     };
 }
-declare function ErrorDisplay({ error, variant, title, onDismiss, onCopy, action }: ErrorDisplayProps): react_jsx_runtime.JSX.Element;
+declare function ErrorDisplay({ error, variant, title, onDismiss, onCopy, action }: ErrorDisplayProps): React__default.JSX.Element;
 
 interface CardProps {
-    children: React.ReactNode;
+    children: React__default.ReactNode;
     onClick?: () => void;
     padding?: number | string;
-    style?: React.CSSProperties;
+    style?: React__default.CSSProperties;
 }
-declare function Card({ children, onClick, padding, style }: CardProps): react_jsx_runtime.JSX.Element;
+declare function Card({ children, onClick, padding, style }: CardProps): React__default.JSX.Element;
 
 interface PageContainerProps {
-    children: React.ReactNode;
+    children: React__default.ReactNode;
     maxWidth?: number;
     centered?: boolean;
-    style?: React.CSSProperties;
+    style?: React__default.CSSProperties;
 }
-declare function PageContainer({ children, maxWidth, centered, style }: PageContainerProps): react_jsx_runtime.JSX.Element;
+declare function PageContainer({ children, maxWidth, centered, style }: PageContainerProps): React__default.JSX.Element;
 
 interface SkeletonProps {
     width?: number | string;
     height?: number | string;
     borderRadius?: number | string;
     aspectRatio?: string;
-    style?: React.CSSProperties;
+    style?: React__default.CSSProperties;
 }
-declare function Skeleton({ width, height, borderRadius, aspectRatio, style }: SkeletonProps): react_jsx_runtime.JSX.Element;
-declare function GallerySkeleton(): react_jsx_runtime.JSX.Element;
-declare function SessionDetailSkeleton(): react_jsx_runtime.JSX.Element;
-declare function RecordPageSkeleton(): react_jsx_runtime.JSX.Element;
+declare function Skeleton({ width, height, borderRadius, aspectRatio, style }: SkeletonProps): React__default.JSX.Element;
+declare function GallerySkeleton(): React__default.JSX.Element;
+declare function SessionDetailSkeleton(): React__default.JSX.Element;
+declare function RecordPageSkeleton(): React__default.JSX.Element;
 
 declare const colors: {
     readonly bg: {

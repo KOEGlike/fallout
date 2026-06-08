@@ -42,6 +42,7 @@ export interface SharedProps {
   rsvp_path: string
   has_unread_mail: boolean
   current_streak: number
+  unsubmitted_hours: number | null
   streak_freezes: number
   identity_gate: IdentityGate | null
   show_feedback_banner: boolean
@@ -218,6 +219,7 @@ export interface AdminUserDetail {
   is_discarded: boolean
   discarded_at: string | null
   created_at: string
+  ticket_hours_override?: number | null
 }
 
 export interface AdminStreakDay {
@@ -472,6 +474,7 @@ export interface ReviewProjectContext {
   description: string | null
   repo_link: string | null
   demo_link: string | null
+  demo_video_link: string | null
   user_id: number
   user_display_name: string
   user_avatar: string
@@ -576,11 +579,29 @@ export interface PreviousReview {
   reviewed_at: string
 }
 
+export interface SiblingStatus {
+  status: string | null
+  id: number | null
+}
+
 export interface SiblingStatuses {
-  time_audit: string | null
-  requirements_check: string | null
-  design_review: string | null
-  build_review: string | null
+  time_audit: SiblingStatus
+  requirements_check: SiblingStatus
+  design_review: SiblingStatus
+  build_review: SiblingStatus
+}
+
+export interface SiblingReview {
+  status: string | null
+  reviewer: string | null
+  path: string | null
+}
+
+export interface SiblingReviews {
+  time_audit: SiblingReview
+  requirements_check: SiblingReview
+  design_review: SiblingReview
+  build_review: SiblingReview
 }
 
 export interface RecordingSummary {

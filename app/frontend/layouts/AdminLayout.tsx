@@ -70,11 +70,14 @@ export default function AdminLayout({ children, flush }: { children: ReactNode; 
         overflow: hidden;
         pointer-events: none;
         z-index: 39;
-        background: var(--background, #fff);
+        background: var(--background);
         will-change: transform, opacity;
       `
       ghost.innerHTML = main.innerHTML
-      document.body.appendChild(ghost)
+      // Append inside .admin so all CSS variables (bg-card, text-foreground, etc.)
+      // resolve correctly in dark mode — position:fixed still anchors to the viewport.
+      const adminRoot = document.querySelector<HTMLElement>('.admin')
+      ;(adminRoot ?? document.body).appendChild(ghost)
 
       // Hide live <main> — ghost covers it until new content is ready
       main.style.transition = 'none'

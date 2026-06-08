@@ -6,6 +6,7 @@ type Order = {
   id: number
   frozen_usd_cents: number
   frozen_koi_amount: number
+  frozen_gold_amount: number
   state: 'pending' | 'fulfilled' | 'rejected' | 'on_hold'
   admin_note: string | null
   created_at: string
@@ -22,7 +23,15 @@ function formatDollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
 
-export default function ProjectGrantsIndex({ orders, koi_balance }: { orders: Order[]; koi_balance: number }) {
+export default function ProjectGrantsIndex({
+  orders,
+  koi_balance,
+  gold_balance,
+}: {
+  orders: Order[]
+  koi_balance: number
+  gold_balance: number
+}) {
   return (
     <div className="w-screen min-h-screen bg-light-blue flex items-center justify-center p-4">
       <Frame className="relative z-10 w-full max-w-2xl">
@@ -40,7 +49,8 @@ export default function ProjectGrantsIndex({ orders, koi_balance }: { orders: Or
             </Link>
           </div>
           <p className="text-dark-brown mb-4">
-            Your koi balance: <span className="font-bold">{koi_balance}</span>
+            Your balance: <span className="font-bold">{koi_balance} koi</span> ·{' '}
+            <span className="font-bold">{gold_balance} gold</span>
           </p>
 
           {orders.length === 0 ? (
@@ -55,7 +65,8 @@ export default function ProjectGrantsIndex({ orders, koi_balance }: { orders: Or
                     <div>
                       <div className="text-2xl font-bold text-dark-brown">{formatDollars(o.frozen_usd_cents)}</div>
                       <div className="text-sm text-dark-brown opacity-80">
-                        paid {o.frozen_koi_amount} koi · {o.created_at}
+                        paid {o.frozen_koi_amount} koi
+                        {o.frozen_gold_amount > 0 ? ` + ${o.frozen_gold_amount} gold` : ''} · {o.created_at}
                       </div>
                     </div>
                     <div className="text-sm font-bold px-3 py-1 rounded-sm bg-brown text-light-brown">

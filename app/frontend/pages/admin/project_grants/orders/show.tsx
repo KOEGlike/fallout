@@ -12,6 +12,7 @@ type Order = {
   id: number
   user: { id: number; display_name: string; email: string; hcb_email: string; avatar: string }
   frozen_koi_amount: number
+  frozen_gold_amount: number
   frozen_usd_cents: number
   state: 'pending' | 'fulfilled' | 'rejected' | 'on_hold'
   admin_note: string | null
@@ -134,9 +135,11 @@ export default function AdminProjectGrantsOrdersShow({
     }
   }
 
+  // Koi and gold are both earned at the same hour rate, so the hours estimate uses their sum.
+  const currencyTotal = order.frozen_koi_amount + order.frozen_gold_amount
   const hoursLabel =
     hours_configured && rates.koi_to_hours_numerator != null && rates.koi_to_hours_denominator != null
-      ? ` · ≈ ${Math.round(((order.frozen_koi_amount * rates.koi_to_hours_numerator) / rates.koi_to_hours_denominator) * 100) / 100} hours`
+      ? ` · ≈ ${Math.round(((currencyTotal * rates.koi_to_hours_numerator) / rates.koi_to_hours_denominator) * 100) / 100} hours`
       : ''
 
   return (
@@ -219,8 +222,11 @@ export default function AdminProjectGrantsOrdersShow({
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">Koi paid:</span>{' '}
-              <span className="font-mono">{order.frozen_koi_amount}</span>
+              <span className="text-muted-foreground">Paid:</span>{' '}
+              <span className="font-mono">
+                {order.frozen_koi_amount} koi
+                {order.frozen_gold_amount > 0 ? ` + ${order.frozen_gold_amount} gold` : ''}
+              </span>
             </div>
             <div>
               <span className="text-muted-foreground">USD:</span>{' '}

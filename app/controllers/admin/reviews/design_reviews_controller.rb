@@ -11,7 +11,8 @@ class Admin::Reviews::DesignReviewsController < Admin::Reviews::BaseController
     @pagy, @all_reviews = pagy(base.order(created_at: :desc))
     flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
     Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
-    previously_reviewed = precompute_previously_reviewed_project_ids
+    page_project_ids = (pending_reviews + @all_reviews).map { |r| r.ship.project_id }.uniq
+    previously_reviewed = precompute_previously_reviewed_project_ids(page_project_ids)
     lifetime_hours = precompute_user_lifetime_hours(pending_reviews)
     pending_reviews = pending_reviews.sort_by { |review| -(lifetime_hours[review.ship.project.user_id] || -1) } if sort == :hours
 
@@ -46,7 +47,7 @@ class Admin::Reviews::DesignReviewsController < Admin::Reviews::BaseController
       new_entries: new_entries.map { |je| serialize_journal_entry(je, time_audit) },
       previous_entries: previous_entries.map { |je| serialize_journal_entry(je, time_audit) },
       sibling_statuses: serialize_sibling_statuses(ship),
-      previous_reviews: serialize_previous_reviews(project, ship, DesignReview),
+      previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: ship.requirements_check_review&.repo_tree,
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),

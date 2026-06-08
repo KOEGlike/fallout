@@ -46,7 +46,8 @@ import type {
   RepoTreeData,
   RequirementsCheckProjectContext,
   ReviewerNote,
-  SiblingStatuses,
+  SiblingReview,
+  SiblingReviews,
   PreviousReview,
 } from '@/types'
 
@@ -72,18 +73,26 @@ function isSafeUrl(url: string | null | undefined): boolean {
   }
 }
 
-function SiblingBadge({ label, status }: { label: string; status: string | null }) {
-  if (!status) return null
+function SiblingBadge({ label, review }: { label: string; review: SiblingReview }) {
+  if (!review.status) return null
   const color =
-    status === 'approved'
+    review.status === 'approved'
       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-      : status === 'returned' || status === 'rejected'
+      : review.status === 'returned' || review.status === 'rejected'
         ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
         : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-  return (
+  const badge = (
     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${color}`}>
-      {label}: {status}
+      {label}: {review.status}
+      {review.reviewer && ` (${review.reviewer})`}
     </span>
+  )
+  return review.path ? (
+    <Link href={review.path} className="hover:underline">
+      {badge}
+    </Link>
+  ) : (
+    badge
   )
 }
 
@@ -95,9 +104,9 @@ const JournalEntriesList = memo(function JournalEntriesList({
   entries: (RequirementsCheckJournalEntry & { isNew: boolean })[]
 }) {
   return (
-    <div className="divide-y divide-border">
+    <div className="divide-y divide-border overflow-y-auto max-h-96">
       {entries.map((entry) => (
-        <div key={entry.id} className="p-3 space-y-2">
+        <div key={entry.id} className="p-3 space-y-2 min-w-0">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <img src={entry.author_avatar} alt="" className="size-4 rounded-full" />
             <span>{entry.author_display_name}</span>
@@ -472,7 +481,7 @@ interface PageProps {
   project: RequirementsCheckProjectContext
   new_entries: RequirementsCheckJournalEntry[]
   previous_entries: RequirementsCheckJournalEntry[]
-  sibling_statuses: SiblingStatuses
+  sibling_statuses: SiblingReviews
   previous_reviews: PreviousReview[]
   repo_tree?: RepoTreeData | null
   reviewer_notes?: ReviewerNote[]
@@ -514,7 +523,7 @@ export default function BuildReviewsShow({
     review.hours_adjustment != null ? String(review.hours_adjustment / 3600) : '',
   )
   const [goldAdjInput, setGoldAdjInput] = useState(review.gold_adjustment != null ? String(review.gold_adjustment) : '')
-  const [demoLinkInput, setDemoLinkInput] = useState(project.demo_link ?? '')
+  const [demoLinkInput, setDemoLinkInput] = useState(project.demo_link || project.demo_video_link || '')
   const [submitting, setSubmitting] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const [flagging, setFlagging] = useState(false)
@@ -771,10 +780,10 @@ export default function BuildReviewsShow({
             {/* Sibling review statuses */}
             <div className="px-3 py-2 border-t border-border flex items-center gap-3 text-xs">
               <span className="text-muted-foreground">Reviews:</span>
-              <SiblingBadge label="Time Audit" status={sibling_statuses.time_audit} />
-              <SiblingBadge label="Requirements" status={sibling_statuses.requirements_check} />
-              <SiblingBadge label="Design" status={sibling_statuses.design_review} />
-              <SiblingBadge label="Build" status={sibling_statuses.build_review} />
+              <SiblingBadge label="Time Audit" review={sibling_statuses.time_audit} />
+              <SiblingBadge label="Requirements" review={sibling_statuses.requirements_check} />
+              <SiblingBadge label="Design" review={sibling_statuses.design_review} />
+              <SiblingBadge label="Build" review={sibling_statuses.build_review} />
             </div>
           </div>
 
@@ -798,7 +807,11 @@ export default function BuildReviewsShow({
                       <div className="flex items-center gap-2">
                         <ReviewStatusBadge status={r.status} />
                         <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
-                          {r.review_type === 'design_review' ? 'Design' : 'Build'}
+                          {r.review_type === 'requirements_check_review'
+                            ? 'RC'
+                            : r.review_type === 'design_review'
+                              ? 'Design'
+                              : 'Build'}
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0">

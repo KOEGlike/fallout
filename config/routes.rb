@@ -408,6 +408,7 @@ Rails.application.routes.draw do
           patch :update_streak_day # Admin streak day status override
           patch :restore_streak_goal # Admin streak goal restore (fills blank/missed days with frozen)
           patch :update_ban # Admin ban/unban — admin-only
+          patch :update_ticket_hours_override # Admin per-user ticket hours threshold override
           patch :toggle_reviewer_suggestion # Exclude/include from "Not Yet a Reviewer" list
         end
       end
@@ -428,6 +429,7 @@ Rails.application.routes.draw do
       end
       resources :soup_campaigns, only: [ :index, :show, :new, :create, :update, :edit, :destroy ] do
         member do
+          get :audience_preview
           post :send_campaign
           post :test_send
           post :cancel

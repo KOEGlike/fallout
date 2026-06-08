@@ -35,7 +35,8 @@ class Admin::ProjectsController < Admin::ApplicationController
       include_deleted: params[:include_deleted] == "1",
       hide_unlisted: params[:hide_unlisted] == "1",
       with_journals: params[:with_journals] == "1",
-      total_count: base_scope.count
+      # Without a search, pagy already counted base_scope — reuse it instead of a second COUNT.
+      total_count: params[:query].present? ? base_scope.count : @pagy.count
     }
   end
 
@@ -144,12 +145,7 @@ class Admin::ProjectsController < Admin::ApplicationController
       status: ship.status,
       approved_public_hours: public_hrs,
       approved_internal_hours: internal_hrs,
-      review_statuses: {
-        time_audit: ship.time_audit_review&.status,
-        requirements_check: ship.requirements_check_review&.status,
-        design_review: ship.design_review&.status,
-        build_review: ship.build_review&.status
-      },
+      review_statuses: review_statuses_payload(ship),
       created_at: ship.created_at.strftime("%b %d, %Y")
     }
   end

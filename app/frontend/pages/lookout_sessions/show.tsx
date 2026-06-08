@@ -169,6 +169,7 @@ function LookoutSessionShow({
             apiBaseUrl={lookout_api_url ?? ''}
             callbacks={lookoutCallbacks}
             capture={mode === 'camera' ? { mode: 'camera' } : undefined}
+            appName="Fallout"
           >
             <BrowserRecorderUI returnTo={return_to} />
           </LookoutProvider>

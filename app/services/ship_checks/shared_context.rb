@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "base64"
+require "csv"
 
 module ShipChecks
   # Holds memoized fetched data shared across checks.
@@ -17,6 +18,12 @@ module ShipChecks
       @repo_meta ||= fetch_repo_meta
     end
 
+    # HEAD commit SHA of the default branch — the true content identity used to key
+    # cached check results so a push always busts the cache. nil if it can't be resolved.
+    def head_sha
+      @head_sha ||= fetch_head_sha
+    end
+
     def repo_tree
       @repo_tree ||= fetch_repo_tree
     end
@@ -27,6 +34,21 @@ module ShipChecks
 
     def bom_content
       @bom_content ||= fetch_bom_content
+    end
+
+    # Repo path of the detected BOM file, or nil. Lets checks distinguish a
+    # text CSV from a binary .xlsx that can't be parsed as text.
+    def bom_path
+      return @bom_path if defined?(@bom_path)
+      @bom_path = repo_tree ? find_bom_path : nil
+    end
+
+    # Shared parse outcome for a CSV BOM so the formatting and links checks
+    # agree. Returns :no_csv (missing or non-CSV BOM), :malformed (present but
+    # unparseable), or the parsed Array of rows.
+    def bom_csv
+      return @bom_csv if defined?(@bom_csv)
+      @bom_csv = parse_bom_csv
     end
 
     def file_content(path)
@@ -96,6 +118,12 @@ module ShipChecks
       github_api("/repos/#{github_nwo}")
     end
 
+    def fetch_head_sha
+      return nil unless repo_meta
+      branch = repo_meta["default_branch"] || "main"
+      github_api("/repos/#{github_nwo}/git/ref/heads/#{branch}")&.dig("object", "sha")
+    end
+
     def fetch_repo_tree
       return nil unless repo_meta
       branch = repo_meta["default_branch"] || "main"
@@ -151,6 +179,15 @@ module ShipChecks
         name = File.basename(p).downcase
         name.end_with?(".csv", ".xlsx") && name.match?(/bom|bill.of.material/)
       end
+    end
+
+    def parse_bom_csv
+      return :no_csv unless bom_content && bom_path&.downcase&.end_with?(".csv")
+      # Fail closed: any parse error (malformed CSV, bad encoding, etc.) on this
+      # user-supplied file is reported as :malformed rather than raising.
+      CSV.parse(bom_content)
+    rescue StandardError
+      :malformed
     end
   end
 end

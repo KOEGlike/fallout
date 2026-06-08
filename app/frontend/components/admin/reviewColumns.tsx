@@ -16,6 +16,7 @@ export function buildPendingColumns(
   basePath: string,
   siblingLabel?: string,
   extraColumns: ColumnDef<ReviewRow>[] = [],
+  slaDays?: number,
 ): ColumnDef<ReviewRow>[] {
   return [
     {
@@ -66,6 +67,7 @@ export function buildPendingColumns(
           waitingSince={row.original.waiting_since}
           cycleStartedAt={row.original.cycle_started_at}
           prefix={false}
+          slaDays={slaDays}
         />
       ),
     },

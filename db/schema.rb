@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_131000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_103735) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -542,6 +542,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_131000) do
     t.text "admin_note"
     t.datetime "created_at", null: false
     t.datetime "discarded_at"
+    t.integer "frozen_gold_amount", default: 0, null: false
     t.integer "frozen_koi_amount", null: false
     t.integer "frozen_usd_cents", null: false
     t.string "state", default: "pending", null: false
@@ -897,6 +898,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_131000) do
     t.datetime "sent_at"
     t.integer "soup_campaign_recipients_count", default: 0, null: false
     t.integer "status", default: 0, null: false
+    t.text "target_query"
+    t.integer "target_user_ids", default: [], null: false, array: true
     t.string "unsubscribe_label", default: "Important program related announcement | Unsubscribe", null: false
     t.string "unsubscribe_token", null: false
     t.datetime "updated_at", null: false
@@ -998,7 +1001,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_131000) do
     t.integer "streak_freezes", default: 1, null: false
     t.boolean "streak_in_app_notifications", default: true, null: false
     t.boolean "streak_slack_notifications", default: true, null: false
-    t.string "summit_rsvp"
+    t.integer "ticket_hours_override"
     t.string "timezone", null: false
     t.string "type"
     t.datetime "updated_at", null: false

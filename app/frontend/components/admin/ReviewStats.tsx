@@ -23,7 +23,7 @@ function DeltaChevron({ delta, better, unit }: { delta: number | null; better: '
   if (delta == null) return null
   if (delta === 0) {
     return (
-      <span className="inline-flex items-center text-xs text-muted-foreground" title="No change vs prior 7d">
+      <span className="inline-flex items-center text-xs text-muted-foreground" title="No change vs prior 3d">
         <Minus className="w-3 h-3" />
       </span>
     )
@@ -33,7 +33,7 @@ function DeltaChevron({ delta, better, unit }: { delta: number | null; better: '
   const Icon = up ? ChevronUp : ChevronDown
   const color = good ? 'text-green-700' : 'text-red-700'
   return (
-    <span className={`inline-flex items-center text-xs ${color}`} title="vs prior 7d">
+    <span className={`inline-flex items-center text-xs ${color}`} title="vs prior 3d">
       <Icon className="w-3 h-3" />
       {Math.abs(delta).toFixed(1)}
       {unit}
@@ -62,7 +62,7 @@ function fmtPct(p: number | null) {
 // Each card renderer accepts the (possibly undefined) stat slice and falls back
 // to "—". The skeleton state reuses the same card structure so no CLS when the
 // deferred payload lands — only the inner text swaps.
-function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
+function renderCard(key: ReviewStatKey, stats?: ReviewStats, slaDays?: number) {
   switch (key) {
     case 'hours_pending': {
       const v = stats?.hours_pending?.value
@@ -74,31 +74,25 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
     }
     case 'turnaround': {
       const t = stats?.turnaround
+      // Red once the P90 wait reaches the queue's SLA (breach).
+      const breached = slaDays != null && t?.ship_days != null && t.ship_days >= slaDays
       return (
-        <StatCard key={key} label="Turnaround (7d)" description="wait time for reviewed projects">
+        <StatCard key={key} label="P90 Turnaround (3d)" description="90th-pct wait, includes pending backlog">
           <TooltipProvider>
-            <span>
+            <span className={breached ? 'text-red-700 dark:text-red-400' : undefined}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="cursor-default">{fmtDays(t?.ship_days ?? null)}</span>
                 </TooltipTrigger>
-                <TooltipContent>This ship</TooltipContent>
+                <TooltipContent>
+                  <div>90% of reviews wait less than this, from ship submission.</div>
+                  <div>Still-pending reviews count by their current wait, so a backlog shows up here.</div>
+                  {t?.cycle_days != null && <div className="mt-1">From cycle start: {t.cycle_days.toFixed(1)}d</div>}
+                </TooltipContent>
               </Tooltip>
               {t && (
                 <span className="ml-1 align-middle">
                   <DeltaChevron delta={t.ship_delta} better="down" unit="d" />
-                </span>
-              )}
-              <span className="text-muted-foreground"> / </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-default text-muted-foreground">{fmtDays(t?.cycle_days ?? null)}</span>
-                </TooltipTrigger>
-                <TooltipContent>This cycle</TooltipContent>
-              </Tooltip>
-              {t && (
-                <span className="ml-1 align-middle">
-                  <DeltaChevron delta={t.cycle_delta} better="down" unit="d" />
                 </span>
               )}
               {t && (
@@ -114,7 +108,7 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
     case 'approval_ratio': {
       const a = stats?.approval_ratio
       return (
-        <StatCard key={key} label="Approval ratio (7d)" description="percentage of ships that get approved">
+        <StatCard key={key} label="Approval ratio (3d)" description="percentage of ships that get approved">
           <span>{fmtPct(a?.percent ?? null)}</span>
           {a && (
             <span className="text-muted-foreground text-sm font-normal ml-2">
@@ -134,7 +128,7 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
       return (
         <StatCard
           key={key}
-          label="Reship ratio (7d)"
+          label="Reship ratio (3d)"
           description="ships that are re-attempts after a returned/rejected ship"
         >
           <span>{fmtPct(r?.percent ?? null)}</span>
@@ -154,7 +148,15 @@ function renderCard(key: ReviewStatKey, stats?: ReviewStats) {
   }
 }
 
-export function ReviewStatsHeader({ stats_keys, stats }: { stats_keys: ReviewStatKey[]; stats?: ReviewStats }) {
+export function ReviewStatsHeader({
+  stats_keys,
+  stats,
+  sla_days,
+}: {
+  stats_keys: ReviewStatKey[]
+  stats?: ReviewStats
+  sla_days?: number
+}) {
   if (stats_keys.length === 0) return null
 
   // Tailwind JIT can't compile interpolated class names, so map count → literal classes.
@@ -162,6 +164,8 @@ export function ReviewStatsHeader({ stats_keys, stats }: { stats_keys: ReviewSta
     stats_keys.length === 1 ? 'sm:grid-cols-1' : stats_keys.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
 
   return (
-    <div className={`grid grid-cols-1 ${gridClass} gap-3 mb-4`}>{stats_keys.map((key) => renderCard(key, stats))}</div>
+    <div className={`grid grid-cols-1 ${gridClass} gap-3 mb-4`}>
+      {stats_keys.map((key) => renderCard(key, stats, sla_days))}
+    </div>
   )
 }

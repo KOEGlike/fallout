@@ -100,7 +100,10 @@ class Projects::ShipsController < ApplicationController
     ship = @project.ships.build(
       preflight_run: preflight_run,
       ship_type: ship_type,
-      frozen_demo_link: @project.demo_link,
+      # Snapshot the demo URL at ship time: prefer the student-submitted demo_video_link, falling
+      # back to demo_link (the BR reviewer curates demo_link later — the unified upload reads that
+      # live; this frozen value is the analytics-table "Demo Link" source and an upload fallback).
+      frozen_demo_link: @project.demo_video_link.presence || @project.demo_link,
       frozen_repo_link: @project.repo_link,
       preflight_results: snapshot,
       status: initial_status

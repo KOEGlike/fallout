@@ -38,6 +38,7 @@ module ShipCheckService
     ShipChecks::HasPcbFiles,
     ShipChecks::HasCadFiles,
     ShipChecks::HasFirmware,
+    ShipChecks::BomFormatting,
     ShipChecks::BomHasLinks,
     ShipChecks::HasZinePage,
     ShipChecks::ReadmeHasImages,
@@ -176,8 +177,12 @@ module ShipCheckService
     end
   end
 
+  # Keyed on the HEAD commit SHA so any push busts the cache. Returns nil when the SHA
+  # can't be resolved (missing repo_meta, rate limit, error) — callers must skip the cache
+  # rather than fall back to a constant key, which would serve stale results across pushes.
   def cache_key(ctx, project)
-    pushed_at = ctx.repo_meta&.dig("pushed_at") || "unknown"
+    sha = ctx.head_sha
+    return nil unless sha
     nwo = ctx.repo_meta&.dig("full_name") || "none"
     fields = Digest::MD5.hexdigest([
       project.description.to_s,
@@ -186,11 +191,13 @@ module ShipCheckService
       project.respond_to?(:time_logged) ? project.time_logged.to_i : 0,
       project.respond_to?(:tags) ? project.tags.sort.join(",") : ""
     ].join("|"))
-    "ship_check_results:#{nwo}:#{pushed_at}:#{fields}"
+    "ship_check_results:#{nwo}:#{sha}:#{fields}"
   end
 
   def load_cached_results(ctx, project)
-    data = Rails.cache.read(cache_key(ctx, project))
+    key = cache_key(ctx, project)
+    return nil unless key
+    data = Rails.cache.read(key)
     return nil unless data
 
     data.map do |r|
@@ -203,6 +210,8 @@ module ShipCheckService
   end
 
   def store_cached_results(ctx, project, results)
-    Rails.cache.write(cache_key(ctx, project), results.map(&:as_json), expires_in: CACHE_TTL)
+    key = cache_key(ctx, project)
+    return unless key # Don't cache when the commit can't be pinned — avoids stale results across pushes
+    Rails.cache.write(key, results.map(&:as_json), expires_in: CACHE_TTL)
   end
 end

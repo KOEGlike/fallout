@@ -31,7 +31,7 @@
 #  streak_freezes                     :integer          default(1), not null
 #  streak_in_app_notifications        :boolean          default(TRUE), not null
 #  streak_slack_notifications         :boolean          default(TRUE), not null
-#  summit_rsvp                        :string
+#  ticket_hours_override              :integer
 #  timezone                           :string           not null
 #  type                               :string
 #  verification_status                :string
@@ -485,18 +485,32 @@ class User < ApplicationRecord
     Project.batch_user_approved_seconds(all_ids, self).values.sum
   end
 
+  # Time the user has attributed to journals that are attached to a ship (any status) —
+  # i.e. logged time they've actually submitted, before TA approval. Sits between total
+  # (all logged) and approved (TA-blessed): total >= shipped >= approved.
+  def shipped_time_logged_seconds
+    all_ids = projects_attributable_to_self_ids
+    return 0 if all_ids.empty?
+    Project.batch_user_shipped_seconds(all_ids, self).values.sum
+  end
+
   # Project IDs the user might receive attribution from: owned, collaborated-on, or
   # authored/credited on a journal entry of someone else's project. The third bucket
   # exists because journal collaborator credit doesn't require project collaborator
   # membership (decided 2026-05-14: journal collaborators are the source of truth).
   def projects_attributable_to_self_ids
-    owned = projects.kept.pluck(:id)
-    collab = collaborated_projects.kept.pluck(:id)
-    journal_authored = journal_entries.kept.distinct.pluck(:project_id)
-    journal_collab = JournalEntry.kept
-      .where(id: Collaborator.kept.where(user: self, collaboratable_type: "JournalEntry").select(:collaboratable_id))
-      .distinct.pluck(:project_id)
-    (owned + collab + journal_authored + journal_collab).uniq
+    # Memoized: total_time_logged_seconds and approved_time_logged_seconds both call this,
+    # and they're frequently invoked together (shop, profile, ticket-claim, admin pages),
+    # so caching avoids recomputing the 4-query attribution set twice per request.
+    @projects_attributable_to_self_ids ||= begin
+      owned = projects.kept.pluck(:id)
+      collab = collaborated_projects.kept.pluck(:id)
+      journal_authored = journal_entries.kept.distinct.pluck(:project_id)
+      journal_collab = JournalEntry.kept
+        .where(id: Collaborator.kept.where(user: self, collaboratable_type: "JournalEntry").select(:collaboratable_id))
+        .distinct.pluck(:project_id)
+      (owned + collab + journal_authored + journal_collab).uniq
+    end
   end
 
   def koi

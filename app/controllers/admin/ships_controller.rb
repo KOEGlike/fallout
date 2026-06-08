@@ -49,12 +49,7 @@ class Admin::ShipsController < Admin::ApplicationController
       frozen_repo_link: ship.frozen_repo_link,
       project_name: ship.project.name,
       user_display_name: ship.project.user.display_name,
-      review_statuses: {
-        time_audit: ship.time_audit_review&.status,
-        requirements_check: ship.requirements_check_review&.status,
-        design_review: ship.design_review&.status,
-        build_review: ship.build_review&.status
-      },
+      review_statuses: review_statuses_payload(ship),
       created_at: ship.created_at.strftime("%B %d, %Y")
     }
   end
