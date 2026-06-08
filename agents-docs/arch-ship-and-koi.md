@@ -26,7 +26,7 @@ The frontend (`pages/projects/ships/preflight.tsx`) walks 4 steps:
 ### Pre-flight Check Service (`app/services/ship_check_service.rb`)
 
 Two visibility tiers:
-- **USER_CHECK_MODULES** (16): description, repo link, journal entry exists, repo public, README exists, BOM exists, PCB files, CAD files, firmware, BOM has links, zine page, README images/headings/quality, repo organization, images show hardware.
+- **USER_CHECK_MODULES** (17): description, repo link, journal entry exists, repo public, README exists, BOM exists, PCB files, CAD files, firmware, BOM formatting, BOM has links, zine page, README images/headings/quality, repo organization, images show hardware.
 - **INTERNAL_CHECK_MODULES** (4): AI-generated image, image originality, code plagiarism, duplicate project.
 
 Internal checks are skipped (marked `skipped`) if any user check fails — saves LLM/API spend.

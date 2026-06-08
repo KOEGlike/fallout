@@ -38,6 +38,7 @@ module ShipCheckService
     ShipChecks::HasPcbFiles,
     ShipChecks::HasCadFiles,
     ShipChecks::HasFirmware,
+    ShipChecks::BomFormatting,
     ShipChecks::BomHasLinks,
     ShipChecks::HasZinePage,
     ShipChecks::ReadmeHasImages,
