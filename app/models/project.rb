@@ -247,6 +247,22 @@ class Project < ApplicationRecord
     result
   end
 
+  # Shipped counterpart of batch_user_logged_seconds: the user's attributed share of journal
+  # time on journals attached to a ship (any status), per project. Excludes manual_seconds —
+  # project-level manual time isn't tied to a ship.
+  def self.batch_user_shipped_seconds(project_ids, user)
+    return {} if project_ids.empty? || user.nil?
+
+    project_by_je = JournalEntry.kept
+      .where(project_id: project_ids).where.not(ship_id: nil)
+      .pluck(:id, :project_id).to_h
+    user_seconds_by_je = JournalEntry.batch_user_attributed_seconds(project_by_je.keys, user)
+
+    result = Hash.new(0)
+    user_seconds_by_je.each { |je_id, secs| result[project_by_je[je_id]] += secs }
+    result
+  end
+
   # Returns { project_id => approved_seconds_attributed_to_user }. Uses the proportional
   # rule documented on user_approved_seconds: approved_public_seconds_P × user_share_P /
   # approved_cycle_logged_P, where the denominator only includes journal entries claimed

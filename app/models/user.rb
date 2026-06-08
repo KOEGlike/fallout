@@ -485,6 +485,15 @@ class User < ApplicationRecord
     Project.batch_user_approved_seconds(all_ids, self).values.sum
   end
 
+  # Time the user has attributed to journals that are attached to a ship (any status) —
+  # i.e. logged time they've actually submitted, before TA approval. Sits between total
+  # (all logged) and approved (TA-blessed): total >= shipped >= approved.
+  def shipped_time_logged_seconds
+    all_ids = projects_attributable_to_self_ids
+    return 0 if all_ids.empty?
+    Project.batch_user_shipped_seconds(all_ids, self).values.sum
+  end
+
   # Project IDs the user might receive attribution from: owned, collaborated-on, or
   # authored/credited on a journal entry of someone else's project. The third bucket
   # exists because journal collaborator credit doesn't require project collaborator
