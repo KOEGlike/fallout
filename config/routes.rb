@@ -347,6 +347,8 @@ Rails.application.routes.draw do
           end
           collection { get :next }
         end
+        get  "mine",          to: "my_reviews#show",  as: :mine
+        get  "mine/:user_id", to: "my_reviews#show",  as: :user_reviews
       end
 
       resources :project_flags, only: [ :index, :create, :destroy ]
@@ -406,8 +408,8 @@ Rails.application.routes.draw do
           patch :update_streak_day # Admin streak day status override
           patch :restore_streak_goal # Admin streak goal restore (fills blank/missed days with frozen)
           patch :update_ban # Admin ban/unban — admin-only
-          patch :toggle_reviewer_suggestion # Exclude/include from "Not Yet a Reviewer" list
           patch :update_ticket_hours_override # Admin per-user ticket hours threshold override
+          patch :toggle_reviewer_suggestion # Exclude/include from "Not Yet a Reviewer" list
         end
       end
       resources :activity_checks, only: [ :new, :create ]
