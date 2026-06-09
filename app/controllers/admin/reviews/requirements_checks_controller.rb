@@ -4,7 +4,7 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
       .includes(ship: [ :project, :time_audit_review, project: :user ], reviewer: [])
 
     sort = parse_sort
-    pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).order(created_at: :asc).load
+    pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).joins(:ship).order("ships.created_at ASC").load
     @pagy, @all_reviews = pagy(base.order(created_at: :desc))
     Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
     flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
