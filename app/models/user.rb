@@ -531,7 +531,16 @@ class User < ApplicationRecord
   def gold
     return 0 if trial? # Trial users cannot earn or spend gold
 
-    gold_balance
+    # Recomputed live from the ledger, mirroring #koi — no denormalized counter.
+    # Fire the three sums in parallel — wall-time ≈ 1 round-trip instead of 3.
+    earned = gold_transactions.async_sum(:amount)
+    spent_shop = shop_orders.joins(:shop_item)
+                            .where(shop_items: { currency: "gold" })
+                            .where.not(state: :rejected)
+                            .async_sum("frozen_price * quantity")
+    spent_grants = project_grant_orders.kept.where.not(state: :rejected).async_sum(:frozen_gold_amount)
+
+    earned.value - spent_shop.value - spent_grants.value
   end
 
   def self.normalize_country_code(country)
