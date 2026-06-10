@@ -12,7 +12,7 @@ function csrfToken(): string {
  * Sends periodic heartbeats to keep a review claim alive.
  * Alerts the reviewer if the claim is lost (409) or connection drops.
  */
-export function useReviewHeartbeat(heartbeatPath: string) {
+export function useReviewHeartbeat(heartbeatPath: string, enabled = true) {
   const failCount = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
@@ -44,7 +44,8 @@ export function useReviewHeartbeat(heartbeatPath: string) {
   }, [heartbeatPath])
 
   useEffect(() => {
+    if (!enabled) return // Read-only views (e.g. completed reviews) hold no claim — skip heartbeats to avoid false "session expired" alerts
     intervalRef.current = setInterval(beat, HEARTBEAT_INTERVAL_MS)
     return () => clearInterval(intervalRef.current)
-  }, [beat])
+  }, [beat, enabled])
 }

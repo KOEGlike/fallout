@@ -602,7 +602,7 @@ export default function DesignReviewsShow({
   next_path,
 }: PageProps) {
   const isTerminal = review.status !== 'pending'
-  useReviewHeartbeat(heartbeat_path)
+  useReviewHeartbeat(heartbeat_path, !isTerminal)
 
   const { errors } = usePage<{ errors?: Record<string, string[]> }>().props
 

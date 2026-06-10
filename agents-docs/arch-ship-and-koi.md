@@ -195,6 +195,7 @@ Each review's `Policy#update?` requires `record.pending? && (admin? || active_cl
 - `GET /admin/reviews/:type/next?skip=1,2,3&sort=waiting|hours` — `next_eligible` orders by "your existing claim first, then oldest pending (or most owner-hours when `sort=hours`)." The chosen sort persists in session across PATCH/redirect cycles. Reviewers click "skip" to avoid a tricky review and add it to the URL skip list.
 - `redirect_to_next_or_index` (called after approve/return/reject) — clears `claim_expires_at` (keeps `reviewer_id` for audit), appends current id to skip list, redirects to `next`.
 - Admin viewing a review they don't own enters "supervisory mode" — no claim taken, no redirect.
+- Any queue reviewer can open a **completed** (non-pending) review read-only — `claim_review!` no longer redirects non-admins away from terminal reviews; `show?` still authorizes the queue role (and blocks flagged for non-admins) and `update?` (pending-only) keeps it view-only. The `useReviewHeartbeat` hook is passed `enabled = !isTerminal`, so read-only views send no heartbeats (no false "session expired" alert). A still-pending review claimed by someone else continues to auto-advance to `next`.
 
 ### Admin/Reviewer Index Pages
 

@@ -1694,7 +1694,7 @@ export default function TimeAuditsShow({
     [new_entries, previous_entries],
   )
 
-  useReviewHeartbeat(heartbeat_path)
+  useReviewHeartbeat(heartbeat_path, !isTerminal)
 
   const handleSkip = useCallback(() => {
     const skipIds = skip ? skip.split(',') : []

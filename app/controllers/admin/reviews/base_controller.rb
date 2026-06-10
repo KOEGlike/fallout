@@ -69,7 +69,7 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     elsif current_user.admin?
       nil # Admins can view without claiming (supervisory mode)
     elsif !@review.pending?
-      redirect_to review_index_path, notice: "This review has already been #{@review.status}."
+      nil # Completed reviews are read-only viewable by any reviewer of this queue — show? authorizes the queue role, update? still gates edits to pending claims
     else
       # Claimed by someone else — auto-advance to next available
       skip_ids = parse_skip_ids << @review.id

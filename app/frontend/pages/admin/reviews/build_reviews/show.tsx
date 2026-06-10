@@ -515,7 +515,7 @@ export default function BuildReviewsShow({
   next_path,
 }: PageProps) {
   const isTerminal = review.status !== 'pending'
-  useReviewHeartbeat(heartbeat_path)
+  useReviewHeartbeat(heartbeat_path, !isTerminal)
 
   const [feedback, setFeedback] = useState(review.feedback || '')
   const [internalReason, setInternalReason] = useState(review.internal_reason || '')
