@@ -2,27 +2,30 @@
 #
 # Table name: lapse_timelapses
 #
-#  id                   :bigint           not null, primary key
-#  activity_checked_at  :datetime
-#  description          :text
-#  duration             :float
-#  inactive_frame_count :integer
-#  inactive_percentage  :float
-#  inactive_segments    :jsonb
-#  is_published         :boolean
-#  lapse_created_at     :datetime
-#  last_refreshed_at    :datetime
-#  name                 :string
-#  owner_handle         :string
-#  playback_url         :string
-#  thumbnail_url        :string
-#  video_container_kind :string
-#  visibility           :string
-#  created_at           :datetime         not null
-#  updated_at           :datetime         not null
-#  lapse_timelapse_id   :string           not null
-#  owner_lapse_id       :string
-#  user_id              :bigint           not null
+#  id                      :bigint           not null, primary key
+#  activity_checked_at     :datetime
+#  archive_checksum        :string
+#  archive_video_byte_size :bigint
+#  archived_at             :datetime
+#  description             :text
+#  duration                :float
+#  inactive_frame_count    :integer
+#  inactive_percentage     :float
+#  inactive_segments       :jsonb
+#  is_published            :boolean
+#  lapse_created_at        :datetime
+#  last_refreshed_at       :datetime
+#  name                    :string
+#  owner_handle            :string
+#  playback_url            :string
+#  thumbnail_url           :string
+#  video_container_kind    :string
+#  visibility              :string
+#  created_at              :datetime         not null
+#  updated_at              :datetime         not null
+#  lapse_timelapse_id      :string           not null
+#  owner_lapse_id          :string
+#  user_id                 :bigint           not null
 #
 # Indexes
 #

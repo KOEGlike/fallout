@@ -34,4 +34,36 @@ namespace :lapse do
 
     puts "\nDone. Updated: #{updated}, Skipped: #{skipped}, Failed: #{failed}"
   end
+
+  desc "Archive all LapseTimelapses (footage + metadata) to R2. FORCE=1 re-archives, INLINE=1 runs synchronously"
+  task archive_all: :environment do
+    force = ENV["FORCE"] == "1"
+    inline = ENV["INLINE"] == "1"
+
+    scope = force ? LapseTimelapse.all : LapseTimelapse.where(archived_at: nil)
+    total = scope.count
+    enqueued = archived = failed = 0
+
+    scope.find_each.with_index do |lt, i|
+      if inline
+        print "\r[#{i + 1}/#{total}] #{lt.lapse_timelapse_id}..."
+        begin
+          LapseArchiveService.new.archive!(lt, force: force)
+          archived += 1
+        rescue => e
+          failed += 1
+          puts "\n  Failed LapseTimelapse ##{lt.id}: #{e.message}"
+        end
+      else
+        ArchiveLapseTimelapseJob.perform_later(lt.id, force: force)
+        enqueued += 1
+      end
+    end
+
+    if inline
+      puts "\nDone. Archived: #{archived}, Failed: #{failed}"
+    else
+      puts "Enqueued #{enqueued} archive job(s) on the :heavy queue (#{total} candidate row(s))."
+    end
+  end
 end

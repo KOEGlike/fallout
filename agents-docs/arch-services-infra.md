@@ -34,6 +34,16 @@ PKCE OAuth + API for timelapse recordings from Hackatime.
 - **Controller**: `LapseAuthController` handles OAuth start/callback
 - **Env**: `LAPSE_CLIENT_ID`, `LAPSE_CLIENT_SECRET`, `LAPSE_PROGRAM_KEY`
 
+#### Disaster-recovery archive — `app/services/lapse_archive_service.rb`
+
+Lapse is a third-party service; if it goes down, `playback_url`/`thumbnail_url` (Lapse-hosted) 404. `LapseArchiveService#archive!(lapse_timelapse, force:)` snapshots the **exact data our APIs depend on** to R2: the full raw `fetch_timelapse` response (`source`), the cached DB row (`db_record`), and the actual video + thumbnail bytes.
+
+- **Storage**: a **self-managed `aws-sdk-s3` client** (built from the same `R2_*` env as the `:r2` ActiveStorage service), writing under the deterministic prefix `lapse-archive/<lapse_timelapse_id>/{metadata.json,video.<ext>,thumbnail.<ext>}`. Deliberately bypasses ActiveStorage — no `active_storage_*` rows, no `:r2` service, no `analyze` jobs — so it can never collide with or mutate ActiveStorage's random-keyed blobs.
+- **Integrity (Lapse is semi-unstable)**: API data must be a Hash carrying `playbackUrl` or it's rejected; the downloaded video is `ffprobe`d for a real video stream + positive duration; the thumbnail must sniff as `image/*` (Marcel). All checks run **before** upload and before stamping `archived_at`, so a corrupt fetch raises and the row stays un-archived for a later retry (fail-closed).
+- **Idempotent**: deterministic keys (overwrite-safe) + an `archived_at` skip guard. `force: true` re-archives. Tracking columns on `lapse_timelapses`: `archived_at`, `archive_video_byte_size`, `archive_checksum` (sha256 of the video, computed while streaming).
+- **Job**: `ArchiveLapseTimelapseJob` (queue `:heavy`) — **not wired to anything**; runs only when invoked.
+- **Backfill**: `rake lapse:archive_all` (enqueues jobs; `INLINE=1` runs synchronously, `FORCE=1` re-archives).
+
 ### Lookout (Video Recording) — `app/services/lookout_service.rb`
 
 Screen/camera recording sessions with signed URLs. See [lookout-api-docs.md](lookout-api-docs.md) for full API reference.
@@ -189,6 +199,9 @@ Admin dashboard: MissionControl::Jobs at `/jobs` (admin-only constraint).
 - **Routes prefix**: `/user-attachments` (custom, not `/rails/active_storage`)
 - **Direct upload auth**: patched in `config/initializers/active_storage_auth.rb` — verifies `session[:user_id]` exists because `DirectUploadsController` bypasses `ApplicationController`
 - **Env (R2 production)**: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` — all required for production S3-compatible storage
+
+### Direct R2 use (non-ActiveStorage)
+- `lapse-archive/<lapse_timelapse_id>/` — Lapse disaster-recovery archive written by `LapseArchiveService` via a self-managed `aws-sdk-s3` client (same `R2_*` env). Reserved prefix; ActiveStorage keys are random and slashless so they never overlap. See the Lapse section above.
 
 ### Caching
 - **Dev**: in-process memory
