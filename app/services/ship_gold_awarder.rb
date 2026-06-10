@@ -1,6 +1,8 @@
 # Issues one ship_review gold transaction per non-trial kept project member when a
-# BUILD ship reaches :approved. Gold is split evenly; the owner absorbs any integer
-# remainder. Design ships award koi via ShipKoiAwarder instead (DR → koi, BR → gold).
+# BUILD ship reaches :approved. Gold is split per-contribution — proportional to each
+# member's attributed seconds this cycle (same per-entry attribution as hours); the owner
+# absorbs any integer remainder. A member who logged no contribution this cycle gets 0 and
+# no ledger row. Design ships award koi via ShipKoiAwarder instead (DR → koi, BR → gold).
 #
 # Mirrors ShipKoiAwarder's split semantics so collaborators on a shared project receive
 # their share of both currencies. The partial unique index on
@@ -29,10 +31,11 @@ class ShipGoldAwarder
     total = compute_amount(ship)
     return [ Result.new(status: :skipped_zero_amount, transaction: nil, amount: 0) ] if total.zero?
 
-    shares = ShipKoiAwarder.compute_shares(total, members, ship.project.user_id)
+    shares = ShipKoiAwarder.compute_shares(total, members, ship.project.user_id, ShipKoiAwarder.member_weights(ship, members))
 
-    members.map do |member|
+    members.filter_map do |member|
       amount = shares[member.id]
+      next if amount.zero? # per-entry split: a member with no logged contribution this cycle gets 0 — no row (amount must be non-zero)
       desc = build_description(ship, amount, total, members.size)
       txn = GoldTransaction.create!(
         user: member,
@@ -68,7 +71,7 @@ class ShipGoldAwarder
       sign = adjustment >= 0 ? "+" : "−"
       description += " #{sign} #{adjustment.abs} gold review adjustment"
     end
-    description += " = #{total} total / #{member_count} members (your share: #{amount})" if member_count > 1
+    description += " = #{total} total split by hours across #{member_count} members (your share: #{amount})" if member_count > 1
     description
   end
 end

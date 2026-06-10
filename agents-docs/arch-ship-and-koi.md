@@ -411,7 +411,7 @@ When a ship's status transitions to `:approved`, `Ship#award_ship_review_currenc
 - `ship_type_design?` → `ShipKoiAwarder.call(self)`
 - `ship_type_build?`  → `ShipGoldAwarder.call(self)` AND `BuiltIrlConversionService.call(self)`
 
-Both awarders are the single source of truth for their currency's formula. Each splits the total evenly across non-trial kept project members; the project owner absorbs any integer remainder.
+Both awarders are the single source of truth for their currency's formula. Each splits the total **per-contribution** across non-trial kept project members — proportional to each member's attributed seconds this cycle (`ShipKoiAwarder.member_weights`, the same per-entry attribution used for user-facing hours); the project owner absorbs any integer rounding remainder. A member who logged no contribution this cycle receives 0 and gets no ledger row. When no member has any attributed seconds (e.g. an adjustment-only award), it falls back to an even split.
 
 **Formula (both same shape, only adjustment column and partial unique index differ):**
 ```

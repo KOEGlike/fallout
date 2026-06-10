@@ -1,6 +1,9 @@
 # Issues one ship_review koi transaction per non-trial kept project member when a
-# DESIGN ship reaches :approved. Koi is split evenly; the owner absorbs any integer
-# remainder. Build ships award gold via ShipGoldAwarder instead (DR → koi, BR → gold).
+# DESIGN ship reaches :approved. Koi is split per-contribution — proportional to each
+# member's attributed seconds this cycle, the same per-entry attribution used for
+# user-facing hours; the owner absorbs any integer remainder. A member who logged no
+# contribution this cycle gets 0 and no ledger row. Build ships award gold via
+# ShipGoldAwarder instead (DR → koi, BR → gold).
 #
 # Single source of truth for the koi formula. Called from Ship#award_ship_review_currency!
 # (after_update_commit) and from `rake koi:reconcile_ship_reviews` (operator-triggered
@@ -29,10 +32,11 @@ class ShipKoiAwarder
     total = compute_amount(ship)
     return [ Result.new(status: :skipped_zero_amount, transaction: nil, amount: 0) ] if total.zero?
 
-    shares = compute_shares(total, members, ship.project.user_id)
+    shares = compute_shares(total, members, ship.project.user_id, member_weights(ship, members))
 
-    members.map do |member|
+    members.filter_map do |member|
       amount = shares[member.id]
+      next if amount.zero? # per-entry split: a member with no logged contribution this cycle gets 0 — no row (amount must be non-zero)
       desc = build_description(ship, amount, total, members.size)
       txn = KoiTransaction.create!(
         user: member,
@@ -72,14 +76,32 @@ class ShipKoiAwarder
     ([ owner ] + collab_users).uniq { |u| u.id }.reject { |u| u.trial? || u.discarded? }
   end
 
-  # Distributes total evenly; owner absorbs integer remainder (falls back to first member
-  # if the owner is not eligible, e.g. trial user).
-  def self.compute_shares(total, members, owner_id)
-    n = members.size
-    base = total / n
-    remainder = total % n
+  # Per-member attributed seconds across this ship's cycle journal entries, using the same
+  # per-entry attribution as user-facing hours (author + kept journal collaborators share
+  # each entry's seconds equally). Drives the proportional split in compute_shares.
+  def self.member_weights(ship, members)
+    je_ids = ship.new_journal_entries.ids
+    members.to_h { |u| [ u.id, JournalEntry.batch_user_attributed_seconds(je_ids, u).values.sum ] }
+  end
+
+  # Distributes total proportionally to each member's contributed seconds this cycle
+  # (weights), mirroring how user-facing hours are attributed per journal entry. The owner
+  # absorbs the integer rounding remainder so shares always sum to total exactly. Falls back
+  # to an even split only when no member has any attributed seconds (e.g. an adjustment-only
+  # award with no logged hours). Recipient falls back to the first member if the owner is not
+  # eligible (e.g. trial user).
+  def self.compute_shares(total, members, owner_id, weights)
     recipient_id = members.find { |u| u.id == owner_id }&.id || members.first.id
-    members.to_h { |u| [ u.id, u.id == recipient_id ? base + remainder : base ] }
+    total_weight = members.sum { |u| weights[u.id].to_i }
+    shares =
+      if total_weight.positive?
+        members.to_h { |u| [ u.id, total * weights[u.id].to_i / total_weight ] }
+      else
+        base = total / members.size
+        members.to_h { |u| [ u.id, base ] }
+      end
+    shares[recipient_id] += total - shares.values.sum
+    shares
   end
 
   def self.build_description(ship, amount, total, member_count)
@@ -92,7 +114,7 @@ class ShipKoiAwarder
       sign = adjustment >= 0 ? "+" : "−"
       description += " #{sign} #{adjustment.abs} koi review adjustment"
     end
-    description += " = #{total} total / #{member_count} members (your share: #{amount})" if member_count > 1
+    description += " = #{total} total split by hours across #{member_count} members (your share: #{amount})" if member_count > 1
     description
   end
 end

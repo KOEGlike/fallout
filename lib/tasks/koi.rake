@@ -41,7 +41,7 @@ namespace :koi do
       end
       total = ShipKoiAwarder.compute_amount(ship)
       next [] if total.zero?
-      shares = ShipKoiAwarder.compute_shares(total, members, ship.project.user_id)
+      shares = ShipKoiAwarder.compute_shares(total, members, ship.project.user_id, ShipKoiAwarder.member_weights(ship, members))
       members.map do |member|
         {
           ship_id: ship.id,
@@ -103,5 +103,115 @@ namespace :koi do
       ShipKoiAwarder.call(ship).each { |result| counts[result.status] += 1 }
     end
     puts "Done. Results: #{counts.inspect}"
+  end
+
+  desc <<~DESC
+    Redistribute already-awarded ship_review KOI from the old even split to the new
+    per-contribution (per-entry, proportional to attributed hours) split.
+
+    Dry-run by default — prints every change and FLAGS any user whose resulting koi balance
+    would go negative, touching nothing. Pass APPLY=1 to mutate rows in place
+    (update_columns, bypassing the read-only guard) and delete rows whose new share is 0.
+
+    Per ship the existing total is preserved EXACTLY and re-split among the same recipients by
+    their attributed seconds this cycle; the owner absorbs the rounding remainder. Aggregate
+    koi per ship never changes — only the per-member distribution moves. Gold is not touched.
+
+    Filters:
+      SINCE=YYYY-MM-DD       Only ships approved on/after this date
+      EXCLUDE_SHIP_IDS=1,2   Skip these ship ids (comma-separated)
+
+    Examples:
+      bin/rake koi:backfill_per_entry_split
+      bin/rake koi:backfill_per_entry_split APPLY=1
+  DESC
+  task backfill_per_entry_split: :environment do
+    apply = ENV["APPLY"] == "1"
+    since = ENV["SINCE"].presence && Date.parse(ENV["SINCE"])
+    exclude_ids = (ENV["EXCLUDE_SHIP_IDS"] || "").split(",").filter_map { |s| Integer(s, exception: false) }
+
+    ship_ids = KoiTransaction.where(reason: "ship_review").where.not(ship_id: nil).distinct.pluck(:ship_id)
+    ships = Ship.where(id: ship_ids)
+    ships = ships.where("ships.updated_at >= ?", since.beginning_of_day) if since
+    ships = ships.where.not(id: exclude_ids) if exclude_ids.any?
+    ships = ships.includes(:design_review, :build_review, project: :user)
+
+    updates = [] # { row:, ship_id:, name:, old:, new:, desc: }
+    deletes = [] # { row:, ship_id:, name:, old: }
+    deltas  = Hash.new(0) # user_id => net koi change across all ships
+    users   = {}          # user_id => User (for resulting-balance lookup)
+
+    ships.find_each do |ship|
+      rows = KoiTransaction.where(reason: "ship_review", ship_id: ship.id).includes(:user).to_a
+      next if rows.empty?
+      recipients = rows.map(&:user)
+      recipients.each { |u| users[u.id] = u }
+      # Preserve the exact koi already awarded for this ship; only redistribute it.
+      existing_total = rows.sum(&:amount)
+      weights = ShipKoiAwarder.member_weights(ship, recipients)
+      shares  = ShipKoiAwarder.compute_shares(existing_total, recipients, ship.project.user_id, weights)
+
+      rows.each do |row|
+        new_amt = shares[row.user_id].to_i
+        next if new_amt == row.amount
+        deltas[row.user_id] += new_amt - row.amount
+        if new_amt.zero?
+          deletes << { row: row, ship_id: ship.id, name: row.user.display_name, old: row.amount }
+        else
+          desc = ShipKoiAwarder.build_description(ship, new_amt, existing_total, recipients.size)
+          updates << { row: row, ship_id: ship.id, name: row.user.display_name, old: row.amount, new: new_amt, desc: desc }
+        end
+      end
+    end
+
+    # Resulting balance = current koi (which already reflects the OLD rows) + net delta.
+    negatives = deltas.filter_map do |uid, delta|
+      next if delta.zero?
+      bal = users[uid].koi
+      resulting = bal + delta
+      next if resulting >= 0
+      { user_id: uid, name: users[uid].display_name, current: bal, delta: delta, resulting: resulting }
+    end.sort_by { |h| h[:resulting] }
+
+    mode = apply ? "APPLY" : "DRY RUN"
+    puts "ship_review koi per-entry redistribution — #{mode}"
+    puts "=" * 60
+    puts "Ships with ship_review koi:   #{ships.count}"
+    puts "Rows to update (amount moves): #{updates.size}"
+    puts "Rows to delete (new share 0): #{deletes.size}"
+    puts "Users affected:               #{deltas.count { |_, d| d != 0 }}"
+    puts "Net koi moved (Σ|delta|/2):   #{deltas.values.sum(&:abs) / 2}"
+    puts ""
+
+    if negatives.any?
+      puts "⚠️  #{negatives.size} USER(S) WOULD GO NEGATIVE — FLAGGED:"
+      negatives.each do |n|
+        puts "  user_id=#{n[:user_id]}  #{n[:name].inspect}  current=#{n[:current]}  delta=#{n[:delta]}  resulting=#{n[:resulting]}"
+      end
+    else
+      puts "✓ No user goes negative."
+    end
+    puts ""
+
+    puts "Updates (first 50):"
+    updates.first(50).each { |u| puts "  ship=#{u[:ship_id]}  #{u[:name].inspect}  #{u[:old]} → #{u[:new]}" }
+    puts "  …(#{updates.size - 50} more)" if updates.size > 50
+    puts ""
+    puts "Deletes (first 50):"
+    deletes.first(50).each { |d| puts "  ship=#{d[:ship_id]}  #{d[:name].inspect}  #{d[:old]} → 0 (row removed)" }
+    puts "  …(#{deletes.size - 50} more)" if deletes.size > 50
+    puts ""
+
+    unless apply
+      puts "Dry run only — nothing mutated. Re-run with APPLY=1 to commit."
+      next
+    end
+
+    puts "APPLYING — mutating koi_transactions..."
+    ActiveRecord::Base.transaction do
+      updates.each { |u| u[:row].update_columns(amount: u[:new], description: u[:desc]) } # update_columns bypasses the KoiTransaction read-only guard
+      deletes.each { |d| d[:row].delete } # delete bypasses the read-only before_destroy guard (row's new share is 0, which the amount validation forbids)
+    end
+    puts "Done. Updated #{updates.size}, deleted #{deletes.size}."
   end
 end
