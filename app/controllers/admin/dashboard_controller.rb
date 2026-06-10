@@ -1,7 +1,7 @@
 class Admin::DashboardController < Admin::ApplicationController
-  before_action :require_admin!, except: %i[index dev] # Requirements↔Design dashboard exposes cross-reviewer performance data — admin-only
-  skip_after_action :verify_authorized, only: %i[index requirements_design dev] # No authorizable resource; staff access enforced by Admin::ApplicationController
-  skip_after_action :verify_policy_scoped, only: %i[index requirements_design dev] # No scoped collection
+  before_action :require_admin!, except: %i[index dev] # Requirements↔Design + TA stats dashboards expose cross-reviewer performance data — admin-only
+  skip_after_action :verify_authorized, only: %i[index requirements_design ta_stats dev] # No authorizable resource; staff access enforced by Admin::ApplicationController
+  skip_after_action :verify_policy_scoped, only: %i[index requirements_design ta_stats dev] # No scoped collection
   def index
     # Lambdas so these only run for the initial page render — Inertia partial
     # reloads (e.g. the sidebar's deferred admin_stats) skip lambda evaluation
@@ -34,11 +34,161 @@ class Admin::DashboardController < Admin::ApplicationController
     }
   end
 
+  def ta_stats
+    render inertia: "admin/dashboard/ta_stats", props: {
+      reviewers: -> { reviewer_deflation_stats(ta_review_rows) },
+      owners: -> { owner_deflation_stats(ta_review_rows) }
+    }
+  end
+
   def dev
     render inertia: "admin/dashboard/dev"
   end
 
   private
+
+  # Memoized per-request — both ta_stats tables derive from the same per-review rows,
+  # so compute the heavy annotation sweep once.
+  def ta_review_rows
+    @ta_review_rows ||= compute_ta_review_rows
+  end
+
+  # One row per approved TA review: raw vs approved recording seconds (annotation math
+  # mirrors #time_audited_stats) plus owner/reviewer identity, so callers can aggregate
+  # by reviewer or by project owner.
+  def compute_ta_review_rows
+    reviews = TimeAuditReview
+      .where(status: :approved)
+      .where.not(reviewer_id: nil)
+      .includes(ship: [ { journal_entries: :recordings }, { project: :user } ])
+
+    all_recordings = reviews.flat_map { |ta| ta.ship.journal_entries.reject(&:discarded?).flat_map(&:recordings) }
+    recordables_by_type_id = preload_recordables(all_recordings)
+
+    reviewers = User.where(id: reviews.map(&:reviewer_id).uniq).index_by(&:id)
+
+    reviews.filter_map do |ta|
+      ship = ta.ship
+      project = ship&.project
+      next unless project
+
+      rec_annotations = ta.annotations&.dig("recordings") || {}
+      raw_total = 0.0
+      approved_total = 0.0
+
+      ship.journal_entries.reject(&:discarded?).each do |entry|
+        entry.recordings.each do |rec|
+          recordable = recordables_by_type_id.dig(rec.recordable_type, rec.recordable_id)
+          next unless recordable
+
+          ann = rec_annotations[rec.id.to_s] || {}
+          multiplier = recordable.is_a?(YouTubeVideo) ? (ann["stretch_multiplier"]&.to_f || 1.0) : 60.0
+          raw = case recordable
+          when LookoutTimelapse, LapseTimelapse then recordable.duration.to_i
+          when YouTubeVideo then recordable.duration_seconds.to_i
+          else 0
+          end
+          base = recordable.is_a?(YouTubeVideo) ? raw * multiplier : raw
+
+          approved = base
+          (ann["segments"] || []).each do |seg|
+            range = (seg["end_seconds"].to_f - seg["start_seconds"].to_f) * multiplier
+            case seg["type"]
+            when "removed"  then approved -= range
+            when "deflated" then approved -= range * (seg["deflated_percent"].to_f / 100)
+            end
+          end
+
+          raw_total += base
+          approved_total += [ approved, 0 ].max
+        end
+      end
+
+      reviewer = reviewers[ta.reviewer_id]
+      {
+        ship_id: ship.id,
+        project_id: project.id,
+        project_name: project.name,
+        owner_id: project.user_id,
+        owner_display_name: project.user.display_name,
+        owner_avatar: project.user.avatar,
+        reviewer_id: ta.reviewer_id,
+        reviewer_display_name: reviewer&.display_name,
+        raw_seconds: raw_total,
+        approved_seconds: approved_total,
+        # Per-ship deflation = fraction of raw recording time removed/deflated by the TA.
+        deflation: raw_total.positive? ? ((raw_total - approved_total) / raw_total) : 0.0,
+        reviewed_at: ta.completed_at&.strftime("%b %d, %Y")
+      }
+    end
+  end
+
+  # Table 1 — per reviewer. avg_deflation is the time-weighted overall rate
+  # (total removed / total raw), the figure that should converge across reviewers
+  # at a large sample. hours_reviewed is the sample size that makes it meaningful.
+  def reviewer_deflation_stats(rows)
+    rows.group_by { |r| r[:reviewer_id] }.filter_map do |reviewer_id, group|
+      name = group.first[:reviewer_display_name]
+      next unless name
+      raw = group.sum { |r| r[:raw_seconds] }
+      approved = group.sum { |r| r[:approved_seconds] }
+      {
+        id: reviewer_id,
+        display_name: name,
+        avg_deflation: raw.positive? ? ((raw - approved) / raw) : 0.0,
+        hours_reviewed: (approved / 3600.0).round(1),
+        ships_reviewed: group.size,
+        projects_reviewed: group.map { |r| r[:project_id] }.uniq.size
+      }
+    end.sort_by { |r| -r[:hours_reviewed] }
+  end
+
+  # Table 2 — per project owner with >= 2 audited ships (need multiple ships to
+  # compare). Surfaces the spread of per-ship deflation and how many distinct
+  # reviewers touched the owner's ships, so a big spread across different reviewers
+  # stands out. No "abnormal" cutoff applied — raw spread/min/max/stddev only.
+  def owner_deflation_stats(rows)
+    rows.group_by { |r| r[:owner_id] }.filter_map do |_owner_id, group|
+      next if group.size < 2
+
+      deflations = group.map { |r| r[:deflation] }
+      min = deflations.min
+      max = deflations.max
+      first = group.first
+      ships = group.sort_by { |r| -r[:deflation] }.map do |r|
+        {
+          ship_id: r[:ship_id],
+          project_id: r[:project_id],
+          project_name: r[:project_name],
+          reviewer_id: r[:reviewer_id],
+          reviewer_display_name: r[:reviewer_display_name],
+          deflation: r[:deflation],
+          hours: (r[:approved_seconds] / 3600.0).round(1),
+          reviewed_at: r[:reviewed_at]
+        }
+      end
+      {
+        id: first[:owner_id],
+        display_name: first[:owner_display_name],
+        avatar: first[:owner_avatar],
+        ship_count: group.size,
+        reviewer_count: group.map { |r| r[:reviewer_id] }.uniq.size,
+        avg_deflation: deflations.sum / deflations.size,
+        min_deflation: min,
+        max_deflation: max,
+        spread: max - min,
+        stddev: stddev(deflations),
+        ships: ships
+      }
+    end.sort_by { |r| -r[:spread] }
+  end
+
+  # Population standard deviation; 0 for a single value.
+  def stddev(values)
+    return 0.0 if values.size < 2
+    mean = values.sum / values.size
+    Math.sqrt(values.sum { |v| (v - mean)**2 } / values.size)
+  end
 
   # Counts completed reviews per reviewer across all four review types, returning
   # both all_time and this_week buckets. Fires all eight grouped counts in parallel

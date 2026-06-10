@@ -315,6 +315,7 @@ Rails.application.routes.draw do
   constraints Constraints::StaffConstraint.new do
     namespace :admin do
       get "dashboard/requirements_design" => "dashboard#requirements_design", as: :requirements_design_dashboard
+      get "dashboard/ta_stats" => "dashboard#ta_stats", as: :ta_stats_dashboard
       get "dashboard/dev" => "dashboard#dev", as: :dev_dashboard
       get "/" => "dashboard#index", as: :root
 

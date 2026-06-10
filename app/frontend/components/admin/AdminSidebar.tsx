@@ -80,6 +80,13 @@ function buildNavSections(): { items: NavItem[] }[] {
           statKey: null,
           requirePermission: 'is_admin',
         },
+        {
+          label: 'TA Stats',
+          href: '/admin/dashboard/ta_stats',
+          icon: BarChart2,
+          statKey: null,
+          requirePermission: 'is_admin',
+        },
       ],
     },
     {
