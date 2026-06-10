@@ -336,7 +336,7 @@ function NewJournal({
   const ribbonTabs: { label: string; tab: 'lapse' | 'youtube' | 'lookout'; badge?: string }[] = [
     { label: 'Lookout', tab: 'lookout' as const, badge: 'NEW' },
     { label: 'YouTube', tab: 'youtube' },
-    { label: 'Lapse', tab: 'lapse' },
+    { label: 'Lapse', tab: 'lapse', badge: 'LEGACY' },
   ]
 
   const content = (
