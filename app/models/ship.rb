@@ -485,7 +485,10 @@ class Ship < ApplicationRecord
     return "pending" if reviews.empty?
     return "rejected" if reviews.any?(&:rejected?)
     return "returned" if reviews.any?(&:returned?)
-    return "approved" if reviews.all?(&:approved?)
+    # Approval is gated solely on the phase-two review (DR for design ships, BR for
+    # build ships). TA/RC approval merely unlocks phase two via ensure_phase_two_review! —
+    # a missing or pending phase-two review must never let a ship reach :approved.
+    return "approved" if phase_two_review&.approved?
     "pending"
   end
 
