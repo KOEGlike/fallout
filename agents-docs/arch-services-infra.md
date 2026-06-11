@@ -106,6 +106,7 @@ User messaging and channel management via bot token.
 Creates in-app MailMessage notifications. Not an external integration — purely internal, but lives in `services/` because it's a stateless service object.
 
 **Methods** (class methods, one per notification type):
+
 - `ship_status_changed(ship)` — creates targeted notification on approval/return/rejection with feedback. Links to project page.
 - `collaboration_invite_sent(invite)` — creates non-dismissable notification for invitee. Links to invite show page. `dismissable: false` forces accept/decline.
 - `blueprint_transfer(user, project_names)` — notifies on Blueprint transfer.
@@ -133,7 +134,7 @@ Outbound sync for Users, Projects, ShopOrders, Ships, and the four review types 
 
 2. `ShipUnifiedAirtableUploadJob` — fast path. Calls `Ship#upload_to_unified_airtable!`, which builds a fields hash (HCA identity name/birthday/primary address, repo/demo links, project description, ship id) and POSTs/PATCHes via `AirtableSync.upload_or_create!`. Identifier suffix `"Ship#<id>/unified"` keeps the local `AirtableSync` row distinct from the cron mirror's `"Ship#<id>"`. `upload_or_create!` persists the returned airtable_id back so retries PATCH the existing row instead of creating duplicates (a hackworks gotcha we deliberately don't replicate). No Screenshot field is included here — that's handled by the second job via a different endpoint.
 
-3. `AttachShipUnifiedScreenshotJob` — slow path. Finds a source URL via `ShipChecks::UnifiedScreenshotFinder` (four-stage strategy below), caches it on `ship.frozen_screenshot`, processes via `ShipChecks::UnifiedScreenshotProcessor` (libvips → JPEG, progressive quality reduction until ≤5MB; supports PNG/JPG/WEBP/GIF + PDF rendered through libpoppler-glib8), then POSTs the bytes to `https://content.airtable.com/v0/{base}/{recordId}/Screenshot/uploadAttachment` via `AirtableSync.upload_attachment!`. The job retries with `wait: 15.seconds, attempts: 8` if the parallel upload job hasn't yet created the Airtable record (no airtable_id in `AirtableSync`). After a successful attachment, writes a sentinel `AirtableSync` row keyed `"Ship#<id>/unified/screenshot"` so retries skip — `uploadAttachment` *appends* to the field array, so a repeat would duplicate the screenshot. SVG sources are still skipped (would require librsvg).
+3. `AttachShipUnifiedScreenshotJob` — slow path. Finds a source URL via `ShipChecks::UnifiedScreenshotFinder` (four-stage strategy below), caches it on `ship.frozen_screenshot`, processes via `ShipChecks::UnifiedScreenshotProcessor` (libvips → JPEG, progressive quality reduction until ≤5MB; supports PNG/JPG/WEBP/GIF + PDF rendered through libpoppler-glib8), then POSTs the bytes to `https://content.airtable.com/v0/{base}/{recordId}/Screenshot/uploadAttachment` via `AirtableSync.upload_attachment!`. The job retries with `wait: 15.seconds, attempts: 8` if the parallel upload job hasn't yet created the Airtable record (no airtable_id in `AirtableSync`). After a successful attachment, writes a sentinel `AirtableSync` row keyed `"Ship#<id>/unified/screenshot"` so retries skip — `uploadAttachment` _appends_ to the field array, so a repeat would duplicate the screenshot. SVG sources are still skipped (would require librsvg).
 
 `UnifiedScreenshotFinder.find_url(project, ctx: nil, allow_representative: true, force: false)` strategy, in priority order. Callers can pass an already-built `SharedContext` via `ctx:` to avoid re-fetching the repo tree / re-running vision descriptions (preflight does this); `allow_representative: false` restricts to real zines (skips stage 4); `force: true` busts the cache. Results are cached 6h keyed by `[project.id, updated_at, allow_representative]` with `skip_nil: true`, so a "no zine" outcome is **not** cached and a later-added zine is found on the next check.
 
@@ -150,36 +151,37 @@ Backfill: `bin/rake airtable:backfill_unified_ships` — dry-run by default, `AP
 
 **Config** (`config/queue.yml`): 3 worker pools (process count is `JOB_CONCURRENCY`, default 2):
 
-| Pool | Queues | Threads | Purpose |
-|---|---|---|---|
-| 1 | `realtime`, `default` | 2 | User-facing: Slack messages, channel invites |
-| 2 | `background`, `ahoy`, `meilisearch`, `active_storage`, `solid_queue_recurring`, `uptime` | 4 | Async: Airtable sync, analytics, search reindex, file processing, recurring tasks, health checks |
-| 3 | `heavy` | 4 | Long-running work |
+| Pool | Queues                                                                                   | Threads | Purpose                                                                                          |
+| ---- | ---------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| 1    | `realtime`, `default`                                                                    | 2       | User-facing: Slack messages, channel invites                                                     |
+| 2    | `background`, `ahoy`, `meilisearch`, `active_storage`, `solid_queue_recurring`, `uptime` | 4       | Async: Airtable sync, analytics, search reindex, file processing, recurring tasks, health checks |
+| 3    | `heavy`                                                                                  | 4       | Long-running work                                                                                |
 
 There is no wildcard (`*`) catch-all pool — jobs must target one of the queues above.
 
 **Recurring jobs** (`config/recurring.yml`, production only):
 
-| Job | Schedule | Queue |
-|---|---|---|
-| `clear_solid_queue_finished_jobs` (command) | Hourly (minute 12) | — |
-| `UptimePingJob` | Every minute | `uptime` |
-| `AirtableSyncJob` | Every 5 minutes | `background` |
-| `ExpireStaleReviewClaimsJob` | Every 10 minutes | `background` |
-| `HcbTokenRefreshJob` | Hourly | `background` |
-| `HcbGrantCardSyncJob` | Every 15 minutes | `background` |
-| `HcbDonationSyncJob` | Every 5 minutes | `background` |
-| `StreakReconciliationJob` | Every 30 minutes | `background` |
-| `StreakNotificationJob` | Hourly (minute 30) | `background` |
-| `StreakLeaderboardJob` | Daily 5pm | `background` |
-| `ProjectInactivityJob` | Daily 9am | `background` |
-| `UserBanCheckJob` | Every 30 minutes | `background` |
-| `HcaIdentityRefreshJob` | Every 10 minutes | `background` |
-| `YouTubeVideoBackfillJob` | Daily 11pm | `background` |
-| `hours_stats_refresh` (command) | Daily 5am | — |
-| `RefreshStaleUnifiedThumbnailsJob` | Hourly | `background` |
+| Job                                         | Schedule           | Queue        |
+| ------------------------------------------- | ------------------ | ------------ |
+| `clear_solid_queue_finished_jobs` (command) | Hourly (minute 12) | —            |
+| `UptimePingJob`                             | Every minute       | `uptime`     |
+| `AirtableSyncJob`                           | Every 5 minutes    | `background` |
+| `ExpireStaleReviewClaimsJob`                | Every 10 minutes   | `background` |
+| `HcbTokenRefreshJob`                        | Hourly             | `background` |
+| `HcbGrantCardSyncJob`                       | Every 15 minutes   | `background` |
+| `HcbDonationSyncJob`                        | Every 5 minutes    | `background` |
+| `StreakReconciliationJob`                   | Every 30 minutes   | `background` |
+| `StreakNotificationJob`                     | Hourly (minute 30) | `background` |
+| `StreakLeaderboardJob`                      | Daily 5pm          | `background` |
+| `ProjectInactivityJob`                      | Daily 9am          | `background` |
+| `UserBanCheckJob`                           | Every 30 minutes   | `background` |
+| `HcaIdentityRefreshJob`                     | Every 10 minutes   | `background` |
+| `YouTubeVideoBackfillJob`                   | Daily 11pm         | `background` |
+| `hours_stats_refresh` (command)             | Daily 5am          | —            |
+| `RefreshStaleUnifiedThumbnailsJob`          | Hourly             | `background` |
 
 **Job inventory** (selected; full list in `app/jobs/`):
+
 - `SlackMsgJob` — send Slack message (default queue)
 - `SlackChannelInviteJob` — invite user to Slack channels (default queue)
 - `AirtableSyncJob` → `AirtableSyncClassJob` — orchestrate per-model Airtable sync (background queue)
@@ -193,6 +195,7 @@ Admin dashboard: MissionControl::Jobs at `/jobs` (admin-only constraint).
 ## Storage
 
 ### Active Storage
+
 - **Dev**: local disk (`storage/` at project root)
 - **Test**: `tmp/storage`
 - **Prod**: Cloudflare R2 (S3-compatible)
@@ -201,9 +204,11 @@ Admin dashboard: MissionControl::Jobs at `/jobs` (admin-only constraint).
 - **Env (R2 production)**: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` — all required for production S3-compatible storage
 
 ### Direct R2 use (non-ActiveStorage)
+
 - `lapse-archive/<lapse_timelapse_id>/` — Lapse disaster-recovery archive written by `LapseArchiveService` via a self-managed `aws-sdk-s3` client (same `R2_*` env). Reserved prefix; ActiveStorage keys are random and slashless so they never overlap. See the Lapse section above.
 
 ### Caching
+
 - **Dev**: in-process memory
 - **Prod**: Redis (256MB max, namespaced by env)
 - **Env**: `REDIS_URL` (default `redis://localhost:6379/1`)
@@ -219,13 +224,13 @@ No Action Mailbox processors are implemented (inbound email is not used).
 
 ## Monitoring
 
-| Service | Purpose | Config |
-|---|---|---|
-| **Sentry** | Error tracking + tracing (Ruby + React) | `config/initializers/sentry.rb` (traces/profiles 20% in prod), `ErrorReporter` wrapper (`app/lib/error_reporter.rb`) |
-| **RailsPerformance** | Rails APM dashboard | `/admin/performance` (admin-only, mounted only when `REDIS_URL` is set) |
-| **Ahoy** | Analytics (visits, events) | `config/initializers/ahoy.rb`, `geocode = true`, jobs on `background` queue, CF-Connecting-IP, disabled in dev |
-| **Flipper UI** | Feature flag dashboard | `/flipper` (admin-only) |
-| **MissionControl::Jobs** | Solid Queue dashboard | `/jobs` (admin-only) |
+| Service                  | Purpose                                 | Config                                                                                                               |
+| ------------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Sentry**               | Error tracking + tracing (Ruby + React) | `config/initializers/sentry.rb` (traces/profiles 20% in prod), `ErrorReporter` wrapper (`app/lib/error_reporter.rb`) |
+| **RailsPerformance**     | Rails APM dashboard                     | `/admin/performance` (admin-only, mounted only when `REDIS_URL` is set)                                              |
+| **Ahoy**                 | Analytics (visits, events)              | `config/initializers/ahoy.rb`, `geocode = true`, jobs on `background` queue, CF-Connecting-IP, disabled in dev       |
+| **Flipper UI**           | Feature flag dashboard                  | `/flipper` (admin-only)                                                                                              |
+| **MissionControl::Jobs** | Solid Queue dashboard                   | `/jobs` (admin-only)                                                                                                 |
 
 Sentry frontend: browserTracing (20% sample), replayOnError, canvas replay.
 
@@ -235,17 +240,17 @@ Sentry frontend: browserTracing (20% sample), replayOnError, canvas replay.
 
 All IP-keyed throttles use Cloudflare's `CF-Connecting-IP` (the `CFConnectingIp` prepend) rather than `req.ip`, so a spoofed `X-Forwarded-For` can't bypass them. There is no global all-routes throttle.
 
-| Throttle | Limit | Scope |
-|---|---|---|
-| Auth start (`/auth/hca/start`) | 10/min | per IP |
-| HCA callback (`/auth/hca/callback`) | 20/min | per IP |
-| Sign out (`/auth/signout`) | 10/min | per IP |
-| RSVP (`/rsvp`) | 5/min | per IP |
-| YouTube lookup (`/you_tube_videos/lookup`) | 10/min | per IP |
-| Trial session (`/trial_session`) | 10/3min per IP, 5/hr per hashed email | per IP + email |
-| API v1 (`/api/v1/*`) | 120/min per hashed key, 60/min per IP | per key + IP |
-| Collaboration invites | 20/hr | per user (IP fallback) |
-| Zine cover refresh (`/projects/:id/refresh_cover`) | 6/min | per user (IP fallback) |
+| Throttle                                           | Limit                                 | Scope                  |
+| -------------------------------------------------- | ------------------------------------- | ---------------------- |
+| Auth start (`/auth/hca/start`)                     | 10/min                                | per IP                 |
+| HCA callback (`/auth/hca/callback`)                | 20/min                                | per IP                 |
+| Sign out (`/auth/signout`)                         | 10/min                                | per IP                 |
+| RSVP (`/rsvp`)                                     | 5/min                                 | per IP                 |
+| YouTube lookup (`/you_tube_videos/lookup`)         | 10/min                                | per IP                 |
+| Trial session (`/trial_session`)                   | 10/3min per IP, 5/hr per hashed email | per IP + email         |
+| API v1 (`/api/v1/*`)                               | 120/min per hashed key, 60/min per IP | per key + IP           |
+| Collaboration invites                              | 20/hr                                 | per user (IP fallback) |
+| Zine cover refresh (`/projects/:id/refresh_cover`) | 6/min                                 | per user (IP fallback) |
 
 **Blocklist**: Fail2Ban for `/etc/passwd`, `wp-admin`, `wp-login` patterns — 5 attempts in 10 minutes → 1 hour ban.
 
@@ -258,17 +263,14 @@ All IP-keyed throttles use Cloudflare's `CF-Connecting-IP` (the `CFConnectingIp`
 `/api/v1/` — bearer token auth via `Authorization` header (constant-time comparison against `EXTERNAL_API_KEY`, in `Api::V1::BaseController` which inherits `ActionController::API`).
 
 **Endpoints:**
+
 - `GET /api/v1/projects` — paginated, searchable project list
 - `GET /api/v1/projects/:id` — single project detail
 - `GET /api/v1/users` / `GET /api/v1/users/:id` — user list / detail
 - `GET /api/v1/explore/projects` / `GET /api/v1/explore/journals` — explore feeds
 
-## Deployment — Kamal
+## Deployment — Docker
 
-Docker containers orchestrated by Kamal (`config/deploy.yml`).
+Docker containers
 
-**Services**: Puma (web), Solid Queue (workers via `bin/jobs`).
-
-**Note**: `deploy.yml` contains template placeholders (`app.example.com`, `192.168.0.1`) — actual production hosts are configured via Kamal secrets/environment, not checked into the repo.
-
-**Key production settings**: SSL enforced, STDOUT logging with request ID tags, R2 storage, Redis cache.
+**Services**: Web, Solid Queue (workers via `bin/jobs`),

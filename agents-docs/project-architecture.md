@@ -21,7 +21,7 @@ Fallout is a grant/hackathon program for students. The user journey:
 
 **Backend:** Ruby 3.4.4, Rails 8.1.3, PostgreSQL, Solid Queue, Solid Cache, Pundit, Flipper, PaperTrail, Meilisearch
 **Frontend:** React 19 + TypeScript, Tailwind 4.1.18, Vite 8.0.12, Inertia Rails
-**Infra:** Kamal (Docker), Puma, Redis, Cloudflare R2 (Active Storage), Sentry, Logtail, RailsPerformance
+**Infra:** Docker, Puma, Redis, Cloudflare R2 (Active Storage), Sentry, Logtail, RailsPerformance
 
 ## Where Do I Look When...
 
