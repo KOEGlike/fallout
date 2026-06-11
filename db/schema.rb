@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_143021) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -985,7 +985,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_143021) do
     t.string "email", null: false
     t.boolean "excluded_from_reviewer_suggestions", default: false, null: false
     t.string "first_name"
-    t.integer "gold_balance", default: 0, null: false
     t.boolean "has_hca_address", default: false, null: false
     t.string "hca_id"
     t.text "hca_token"

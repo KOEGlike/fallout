@@ -14,7 +14,6 @@
 #  email                              :string           not null
 #  excluded_from_reviewer_suggestions :boolean          default(FALSE), not null
 #  first_name                         :string
-#  gold_balance                       :integer          default(0), not null
 #  has_hca_address                    :boolean          default(FALSE), not null
 #  hca_token                          :text
 #  hcb_email                          :string
