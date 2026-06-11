@@ -13,10 +13,12 @@ class LapseArchiveService
   SCHEMA_VERSION = 1
   MAX_REDIRECTS = 3
 
-  # Returns :archived, or :skipped when already archived and not forced.
-  # Lapse is semi-unstable, so we validate the API data and probe the downloaded
-  # footage BEFORE uploading or stamping archived_at — a corrupt fetch raises and
-  # leaves the row un-archived so a later backfill retries it (fail-closed).
+  # Returns :archived; :skipped when already archived and not forced; :no_playback when
+  # there is no footage URL to capture (a data gap, flagged by the caller, not an error).
+  # Lapse is semi-unstable, so we validate the API data and probe the downloaded footage
+  # BEFORE uploading or stamping archived_at — any real failure (corrupt API data, failed
+  # download, unreadable video, R2 error) raises, is reported to Sentry, and leaves the
+  # row un-archived so a later backfill retries it (fail-closed).
   def archive!(lapse_timelapse, force: false)
     return :skipped if lapse_timelapse.archived_at.present? && !force
 
@@ -25,17 +27,18 @@ class LapseArchiveService
     # (malformed JSON also surfaces as nil from LapseService).
     raw = lapse_timelapse.fetch_data
 
-    # If Lapse returned a body, it must be a Hash carrying the linchpin field; otherwise
-    # it's a corrupt/partial response we refuse to treat as a valid snapshot.
-    if raw.present? && !(raw.is_a?(Hash) && raw["playbackUrl"].present?)
-      raise Error, "Corrupt Lapse API data for ##{lapse_timelapse.id} (missing playbackUrl)"
+    # If Lapse returned a body it must be a JSON object; anything else is a corrupt/garbled
+    # response we refuse to treat as a valid snapshot. (A valid object that simply lacks a
+    # playbackUrl is an unpublished timelapse — handled as :no_playback below, not an error.)
+    if raw.present? && !raw.is_a?(Hash)
+      raise Error, "Corrupt Lapse API data for ##{lapse_timelapse.id} (expected object, got #{raw.class})"
     end
 
     # Prefer the freshest URLs from the live response; fall back to our cached columns.
     playback_url  = raw&.dig("playbackUrl").presence || lapse_timelapse.playback_url.presence
     thumbnail_url = raw&.dig("thumbnailUrl").presence || lapse_timelapse.thumbnail_url.presence
 
-    raise Error, "No playback_url to archive for LapseTimelapse ##{lapse_timelapse.id}" if playback_url.blank?
+    return :no_playback if playback_url.blank?
 
     id     = lapse_timelapse.lapse_timelapse_id
     prefix = "#{PREFIX}/#{id}"
