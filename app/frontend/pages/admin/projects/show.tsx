@@ -64,6 +64,37 @@ function BurnoutToggle({ projectId, isBurnout }: { projectId: number; isBurnout:
   )
 }
 
+function UnlistToggle({ projectId, isUnlisted }: { projectId: number; isUnlisted: boolean }) {
+  const [saving, setSaving] = useState(false)
+
+  function handleToggle() {
+    setSaving(true)
+    router.patch(
+      `/admin/projects/${projectId}/toggle_unlisted`,
+      {},
+      {
+        preserveScroll: true,
+        onFinish: () => setSaving(false),
+      },
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <Button
+        type="button"
+        size="sm"
+        variant={isUnlisted ? 'destructive' : 'outline'}
+        className="h-7 text-xs"
+        disabled={saving}
+        onClick={handleToggle}
+      >
+        {saving ? 'Saving…' : isUnlisted ? 'Re-list' : 'Unlist'}
+      </Button>
+    </div>
+  )
+}
+
 function ManualHoursForm({ projectId, initialHours }: { projectId: number; initialHours: number }) {
   const [hours, setHours] = useState(String(initialHours))
   const [saving, setSaving] = useState(false)
@@ -471,6 +502,11 @@ export default function AdminProjectsShow({
             {isAdmin && (
               <Field label="Burnout">
                 <BurnoutToggle projectId={project.id} isBurnout={project.tags.includes('burnout')} />
+              </Field>
+            )}
+            {isAdmin && (
+              <Field label="Unlisted">
+                <UnlistToggle projectId={project.id} isUnlisted={project.is_unlisted} />
               </Field>
             )}
             <Field label="Created">{project.created_at}</Field>

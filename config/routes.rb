@@ -407,6 +407,7 @@ Rails.application.routes.draw do
         member do
           patch :update_manual_seconds # Admin-only manual time override for legacy projects
           patch :toggle_burnout # Admin-only burnout tag toggle — waives recording requirement
+          patch :toggle_unlisted # Admin-only: hide/show project from public explore and bulletin board
         end
       end
       resources :users, only: [] do
@@ -429,6 +430,10 @@ Rails.application.routes.draw do
         member do
           patch :approve
           patch :reject
+        end
+        collection do
+          patch :bulk_approve
+          patch :bulk_reject
         end
       end
       resources :koi_transactions, only: [ :index, :new, :create ] # Admin koi adjustments

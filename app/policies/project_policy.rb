@@ -40,6 +40,10 @@ class ProjectPolicy < ApplicationPolicy
     admin? # Admin-only: burnout tag waives recording requirement on journal entries and ships
   end
 
+  def toggle_unlisted?
+    admin? # Admin-only: hide/show project from public explore and bulletin board
+  end
+
   def destroy?
     return false if record.discarded?
     return false if record.ships.exists? # Once submitted (any status — pending, awaiting_identity, approved, returned, rejected), the project is locked from deletion for audit integrity.

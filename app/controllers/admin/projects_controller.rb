@@ -90,6 +90,13 @@ class Admin::ProjectsController < Admin::ApplicationController
     redirect_back fallback_location: admin_project_path(@project)
   end
 
+  def toggle_unlisted
+    @project = Project.find(params[:id])
+    authorize @project, :toggle_unlisted?
+    @project.update!(is_unlisted: !@project.is_unlisted)
+    redirect_back fallback_location: admin_project_path(@project)
+  end
+
   private
 
   def serialize_project_row(project)

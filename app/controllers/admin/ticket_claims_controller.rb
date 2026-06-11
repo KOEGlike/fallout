@@ -51,6 +51,40 @@ class Admin::TicketClaimsController < Admin::ApplicationController
     redirect_to admin_ticket_claims_path
   end
 
+  def bulk_approve
+    claims = TicketClaim.includes(:user).where(id: params[:claim_ids], state: :pending)
+    errors = []
+    approved_count = 0
+
+    claims.each do |claim|
+      user = claim.user
+      begin
+        AttendService.add_participant(
+          first_name: user.first_name.presence || user.display_name.split.first,
+          last_name: user.last_name.presence || (user.display_name.split.length > 1 ? user.display_name.split.last : "-"),
+          email: user.email
+        )
+        claim.update!(state: :approved)
+        approved_count += 1
+      rescue AttendService::Error => e
+        ErrorReporter.capture_exception(e, contexts: { ticket_claim: { claim_id: claim.id, user_id: user.id } })
+        errors << "#{user.display_name}: #{e.message}"
+      end
+    end
+
+    if errors.any?
+      redirect_to admin_ticket_claims_path,
+        inertia: { errors: { base: [ "Approved #{approved_count} claim(s). Failed: #{errors.join('; ')}" ] } }
+    else
+      redirect_to admin_ticket_claims_path
+    end
+  end
+
+  def bulk_reject
+    TicketClaim.where(id: params[:claim_ids]).where.not(state: :rejected).update_all(state: :rejected)
+    redirect_to admin_ticket_claims_path
+  end
+
   private
 
   def serialize_claim(claim)
