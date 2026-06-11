@@ -31,6 +31,7 @@ export default function ShopIndex({
   gold_balance,
   user_hours,
   approved_hours,
+  ticket_hours_threshold,
   ticket_claim_state,
   user_id,
   pending_dialog,
@@ -41,6 +42,7 @@ export default function ShopIndex({
   gold_balance: number
   user_hours: number
   approved_hours: number
+  ticket_hours_threshold: number
   ticket_claim_state: 'pending' | 'approved' | 'rejected' | null
   user_id: number
   pending_dialog: string | null
@@ -250,18 +252,18 @@ export default function ShopIndex({
                 <span className="text-2xl font-bold text-dark-brown shrink-0">{item.price}h</span>
               </div>
               <div className="mt-auto flex flex-col gap-2">
-                {approved_hours < item.price && (
+                {approved_hours < ticket_hours_threshold && (
                   <div className="w-full h-10 bg-brown border-2 border-dark-brown rounded-sm overflow-hidden relative">
                     <div
                       className="h-full bg-dark-brown transition-all duration-500"
-                      style={{ width: `${Math.min((user_hours / item.price) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((user_hours / ticket_hours_threshold) * 100, 100)}%` }}
                     />
                     <span className="absolute inset-0 flex items-center justify-center text-light-brown font-bold text-2xl">
-                      {user_hours}h / {item.price}h
+                      {user_hours}h / {ticket_hours_threshold}h
                     </span>
                   </div>
                 )}
-                {approved_hours >= item.price ? (
+                {approved_hours >= ticket_hours_threshold ? (
                   ticket_claim_state === 'pending' ? (
                     <div className="w-full h-10 bg-brown border-2 border-dark-brown rounded-sm text-dark-brown font-bold flex items-center justify-center text-sm cursor-default select-none">
                       Claim submitted — pending review

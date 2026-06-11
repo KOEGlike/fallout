@@ -912,6 +912,7 @@ function PlayerConfig({ videoContainerRef }: { videoContainerRef: React.RefObjec
 
   // Apply saved rate once the player has a target
   useEffect(() => {
+    if (!rate) return
     const saved = parseFloat(localStorage.getItem(PLAYBACK_RATE_KEY) ?? '')
     if (!AUDIT_PLAYBACK_RATES.includes(saved)) return
     try {
@@ -931,7 +932,7 @@ function PlayerConfig({ videoContainerRef }: { videoContainerRef: React.RefObjec
         const saved = parseFloat(localStorage.getItem(PLAYBACK_RATE_KEY) ?? '')
         if (AUDIT_PLAYBACK_RATES.includes(saved)) {
           try {
-            rate.setPlaybackRate(saved)
+            rate?.setPlaybackRate(saved)
           } catch {
             video.playbackRate = saved
           }
@@ -962,17 +963,18 @@ function PlayerConfig({ videoContainerRef }: { videoContainerRef: React.RefObjec
       isFirstRender.current = false
       return
     }
+    if (!rate) return
     localStorage.setItem(PLAYBACK_RATE_KEY, String(rate.playbackRate))
     // storage event only fires in other tabs; dispatch manually for same-page sync
     window.dispatchEvent(new StorageEvent('storage', { key: PLAYBACK_RATE_KEY, newValue: String(rate.playbackRate) }))
-  }, [rate.playbackRate])
+  }, [rate?.playbackRate])
 
   // Sync when another player on the page changes the rate
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== PLAYBACK_RATE_KEY || !e.newValue) return
       const next = parseFloat(e.newValue)
-      if (AUDIT_PLAYBACK_RATES.includes(next) && next !== rate.playbackRate) {
+      if (rate && AUDIT_PLAYBACK_RATES.includes(next) && next !== rate.playbackRate) {
         try {
           rate.setPlaybackRate(next)
         } catch {

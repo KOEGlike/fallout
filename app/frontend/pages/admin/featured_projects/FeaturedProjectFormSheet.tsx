@@ -98,13 +98,9 @@ export default function FeaturedProjectFormSheet({ open, onOpenChange }: Props) 
       },
       {
         preserveScroll: true,
-        onError: (errs: Record<string, string>) => {
+        onError: (errs: Record<string, string[]>) => {
           setSubmitting(false)
-          const shaped: Record<string, string[]> = {}
-          Object.entries(errs).forEach(([k, v]) => {
-            shaped[k] = Array.isArray(v) ? v : [v]
-          })
-          setErrors(shaped)
+          setErrors(errs)
         },
         onSuccess: () => {
           setSubmitting(false)

@@ -160,14 +160,9 @@ export default function EventFormSheet({ open, onOpenChange, event, currentTab }
 
     const opts = {
       preserveScroll: true,
-      onError: (errs: Record<string, string>) => {
+      onError: (errs: Record<string, string[]>) => {
         setSubmitting(false)
-        // Rails returns `errors` as `{ field: [messages] }` via Inertia's error flash
-        const shaped: Record<string, string[]> = {}
-        Object.entries(errs).forEach(([k, v]) => {
-          shaped[k] = Array.isArray(v) ? v : [v]
-        })
-        setErrors(shaped)
+        setErrors(errs)
       },
       onSuccess: () => {
         setSubmitting(false)

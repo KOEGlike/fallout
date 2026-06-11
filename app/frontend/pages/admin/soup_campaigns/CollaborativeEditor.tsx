@@ -630,16 +630,17 @@ export default function SoupCampaignCollaborativeEditor({
           setSaveStatus('offline')
         },
 
-        received(data: Record<string, unknown>) {
-          switch (data.type) {
+        received(data: unknown) {
+          const msg = data as Record<string, unknown>
+          switch (msg.type) {
             case 'sync_step1_reply': {
               // Already applied synchronously from the yjs_state prop — skip
               break
             }
 
             case 'sync': {
-              if ((data.tab_id as string) === tabId.current) break
-              const binary = atob(data.update as string)
+              if ((msg.tab_id as string) === tabId.current) break
+              const binary = atob(msg.update as string)
               const bytes = new Uint8Array(binary.length)
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
               Y.applyUpdate(ydoc, bytes, 'websocket')
@@ -647,8 +648,8 @@ export default function SoupCampaignCollaborativeEditor({
             }
 
             case 'awareness': {
-              if ((data.tab_id as string) === tabId.current) break
-              const binary = atob(data.update as string)
+              if ((msg.tab_id as string) === tabId.current) break
+              const binary = atob(msg.update as string)
               const bytes = new Uint8Array(binary.length)
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
               applyAwarenessUpdate(awareness, bytes, null)
@@ -657,7 +658,7 @@ export default function SoupCampaignCollaborativeEditor({
 
             case 'presence_join':
             case 'presence': {
-              const user = data.user as PresenceUser
+              const user = msg.user as PresenceUser
               if (user.tab_id === tabId.current) break
               setPeers((prev) => {
                 const filtered = prev.filter((p) => p.tab_id !== user.tab_id)
@@ -667,7 +668,7 @@ export default function SoupCampaignCollaborativeEditor({
             }
 
             case 'presence_leave': {
-              const tid = data.tab_id as string
+              const tid = msg.tab_id as string
               setPeers((prev) => prev.filter((p) => p.tab_id !== tid))
               break
             }

@@ -50,6 +50,7 @@ interface Props {
   backlog_chart: BacklogPoint[]
   backlog_hours_chart: BacklogHoursPoint[]
   recent_activity: RecentActivity
+  [key: string]: unknown
 }
 
 function formatDuration(seconds: number): string {
@@ -244,8 +245,8 @@ export default function AdminDashboardIndex() {
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        labelFormatter={(v: string) => {
-                          const d = new Date(v + 'T00:00:00')
+                        labelFormatter={(v: unknown) => {
+                          const d = new Date(String(v) + 'T00:00:00')
                           return d.toLocaleDateString('en-US', {
                             month: 'long',
                             day: 'numeric',
@@ -295,8 +296,8 @@ export default function AdminDashboardIndex() {
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        labelFormatter={(v: string) => {
-                          const d = new Date(v + 'T00:00:00')
+                        labelFormatter={(v: unknown) => {
+                          const d = new Date(String(v) + 'T00:00:00')
                           return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                         }}
                         formatter={(v) => [`${v}h`, 'Unreviewed hours']}
@@ -343,8 +344,8 @@ export default function AdminDashboardIndex() {
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        labelFormatter={(v: string) => {
-                          const d = new Date(v + 'T00:00:00')
+                        labelFormatter={(v: unknown) => {
+                          const d = new Date(String(v) + 'T00:00:00')
                           return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                         }}
                         formatter={(v) => [v, 'Review units (ships + hours÷10)']}

@@ -18,7 +18,7 @@ export default function AdminLayout({ children, flush }: { children: ReactNode; 
   const url = usePage().url
   const pathname = url.split('?')[0]
 
-  const mainRef = useRef<HTMLMainElement>(null)
+  const mainRef = useRef<HTMLElement>(null)
   // Direction is set in router.on('before') and read after React re-renders
   const pendingDir = useRef<'up' | 'down' | null>(null)
 

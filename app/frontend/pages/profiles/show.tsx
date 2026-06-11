@@ -204,7 +204,7 @@ function ProfileShow({
         const img = new Image()
         img.crossOrigin = 'anonymous'
         img.onload = () => {
-          ctx.drawImage(img, 0, offsetY, SIZE, SIZE)
+          ctx!.drawImage(img, 0, offsetY, SIZE, SIZE)
           resolve()
         }
         img.onerror = () => resolve()
@@ -322,7 +322,7 @@ function ProfileShow({
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || ''
     try {
       const response = await Axios.delete('/profile/custom_avatar', {
-        headers: { 'X-CSRF-Token': csrf, ...modalHeaders() },
+        headers: { ...modalHeaders() },
       })
       setCurrentAvatar(response.data.avatar_url)
       notify('notice', 'Photo reset to Slack profile picture.')

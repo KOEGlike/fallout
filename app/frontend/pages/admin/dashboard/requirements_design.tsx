@@ -204,8 +204,8 @@ function ReviewerProfileCard({
                 content={
                   <ChartTooltipContent
                     hideLabel={false}
-                    labelFormatter={(v: string) => {
-                      const d = new Date(v + 'T00:00:00')
+                    labelFormatter={(v: unknown) => {
+                      const d = new Date(String(v) + 'T00:00:00')
                       return `Week of ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                     }}
                     formatter={(value, name, item) => {

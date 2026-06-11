@@ -22,7 +22,7 @@ function MailShow({ mail, is_modal }: PageProps) {
       {
         preserveScroll: true,
         onSuccess: () => {
-          if (is_modal) modal.close()
+          if (is_modal) modal?.close()
         },
       },
     )
@@ -59,7 +59,7 @@ function MailShow({ mail, is_modal }: PageProps) {
           </Button>
         ) : (
           is_modal && (
-            <Button onClick={() => modal.close()} className="bg-light-brown text-dark-brown">
+            <Button onClick={() => modal?.close()} className="bg-light-brown text-dark-brown">
               Close
             </Button>
           )
