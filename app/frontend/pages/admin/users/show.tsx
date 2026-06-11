@@ -413,7 +413,7 @@ function TicketHoursOverrideEditor({ user }: { user: AdminUserDetail }) {
               <div className="flex items-center gap-2 mt-2">
                 <Input
                   type="number"
-                  min={1}
+                  min={0}
                   max={10000}
                   value={value}
                   onChange={(e) => setValue(e.target.value)}

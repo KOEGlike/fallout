@@ -214,7 +214,7 @@ class Admin::UsersController < Admin::ApplicationController
       redirect_to admin_user_path(@user), notice: "Ticket hours override cleared — default (60h) applies."
     else
       hours = raw.to_i
-      unless hours.positive? && hours <= 10_000
+      unless hours >= 0 && hours <= 10_000
         redirect_to admin_user_path(@user), alert: "Override must be a positive number."
         return
       end
