@@ -225,6 +225,72 @@ export default function AdminProjectGrantsAdjustmentsNew({
         </div>
       </details>
 
+      <details className="mb-6 rounded-md border border-border bg-muted/30">
+        <summary className="cursor-pointer px-4 py-2 text-sm font-medium select-none">
+          How to handle a reimbursement
+        </summary>
+        <div className="px-4 pb-4 pt-1 text-xs space-y-3">
+          <p>
+            An HCB <strong>reimbursement</strong> pays a user a fixed amount for an out-of-pocket expense and then{' '}
+            <strong>cancels their grant card</strong>. The reimbursement lives entirely on HCB — to Fallout it is{' '}
+            <strong>indistinguishable from a normal card cancelation</strong>. There's no transaction row and no signal,
+            so it can't be automated. You compensate by hand here.
+          </p>
+
+          <div>
+            <div className="font-semibold mb-1">Why a reimbursement needs a manual entry</div>
+            <p className="text-muted-foreground">
+              On cancelation, Fallout auto-books an <code>out</code> row for the card's unspent balance and{' '}
+              <strong>replenishes the user's funding</strong> (so a future order re-sends what came back). But a
+              reimbursement was <em>spent</em>, not returned — and since it's invisible, the auto-refund wrongly hands
+              that money back as spendable funding. Left alone, the user is reimbursed <em>and</em> keeps the
+              entitlement: the same dollars counted twice.
+            </p>
+          </div>
+
+          <div>
+            <div className="font-semibold mb-1">The fix: one compensating in adjustment</div>
+            <p className="text-muted-foreground mb-1">
+              <strong>After</strong> the cancelation has synced (≤15 min — the auto-refund must land first), and{' '}
+              <strong>before</strong> issuing the user any replacement card, record:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+              <li>
+                Direction = <code>in</code>
+              </li>
+              <li>
+                Amount = the <strong>reimbursed</strong> amount
+              </li>
+              <li>
+                <strong>Count towards issued funding = checked</strong>
+              </li>
+              <li>Note citing the HCB reimbursement report and the cancelled card</li>
+            </ul>
+            <p className="text-muted-foreground mt-1">
+              An <code>in</code> with funding checked is the only lever that pushes entitlement back <em>down</em> — it
+              reverses the slice of the auto-refund that was actually spent. An <code>out</code> would do the opposite
+              (it's a refund), and an unchecked row wouldn't touch funding at all.
+            </p>
+          </div>
+
+          <div>
+            <div className="font-semibold mb-1">Example — $50 card, $30 reimbursed, $20 genuinely unspent</div>
+            <p className="text-muted-foreground">
+              Auto-refund returns the full $50 as funding (wrong — over by $30). You book <code>in</code> $30, funding
+              checked. Now the user is left with exactly <strong>$20</strong> of entitlement for their next card, and
+              the $30 reimbursement is correctly recorded as spent.
+            </p>
+          </div>
+
+          <p className="text-muted-foreground italic">
+            Heads up: the preview below only measures the user's <strong>active</strong> cards, and the reimbursed card
+            is now cancelled — so it shows a $0 baseline and will flag a misleading "creates a gap" / "missing from HCB"
+            warning for this entry. <strong>Disregard it.</strong> A closed card legitimately diverges from the ledger
+            and isn't tracked; the adjustment still records and settles correctly.
+          </p>
+        </div>
+      </details>
+
       {Object.keys(errors).length > 0 && (
         <Alert variant="destructive" className="mb-4">
           <AlertDescription>
