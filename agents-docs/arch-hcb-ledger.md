@@ -206,9 +206,9 @@ End state: the user has exactly **$20** of entitlement left for their next card;
 
 The closed card's HCB `amount_cents` ($50) now diverges from its `ledger_net` ($30), but that gap is **intentional and ignored** for every closed card — the reimbursement just makes it $30 instead of the usual $20.
 
-### Known rough edge
+### Preview when there's no active card
 
-The adjustment form's live "current → projected" preview sums **active cards only** ([§6](#6-admin-ui-scoping-rules)). For a cancelled card both `actual` and `expected` come back $0, but `has_card` is still true and `amountCents > 0`, so the form **does** project — from a bogus $0 baseline — and fires its red "⚠ creates a gap / missing from HCB" warning. It's a false alarm (closed cards legitimately diverge, §5); the entry still saves and settles correctly. The form has no way to know the target card is closed, so this isn't special-cased — admins must disregard the warning for reimbursement entries.
+The adjustment form's live "current → projected" preview sums **active cards only** ([§6](#6-admin-ui-scoping-rules)). For a cancelled card both `actual` and `expected` come back $0, so projecting an entry against that $0 baseline would otherwise fire a bogus red "⚠ creates a gap / missing from HCB" warning. The `ledger` sidecar therefore returns **`has_active_card`**, and the form suppresses the gap/divergence warnings (and the negative-expected warning) whenever it's false, replacing them with a neutral "no active card to compare against — ignore the gap" note. The row still saves and settles correctly; the gap on the closed card is intentional and ignored (§5).
 
 ---
 

@@ -35,6 +35,18 @@ class Admin::ProjectGrants::OrdersController < Admin::ApplicationController
     # its pagination doesn't collide with orders' `page`.
     topups_scope = policy_scope(ProjectFundingTopup).kept.includes(:user, :hcb_grant_card)
     topups_scope = topups_scope.where(status: params[:topup_status]) if params[:topup_status].present? && ProjectFundingTopup.statuses.key?(params[:topup_status])
+    if params[:topup_q].present?
+      like = "%#{ProjectFundingTopup.sanitize_sql_like(params[:topup_q].to_s.strip)}%"
+      # references() flips the includes above into a LEFT JOIN so the joined users /
+      # hcb_grant_cards columns are filterable in one query. Email is searched
+      # server-side only — it's never serialized into the topups payload, so this
+      # lets admins find a user's rows by email without exposing PII to the frontend.
+      topups_scope = topups_scope.references(:user, :hcb_grant_card).where(
+        "users.display_name ILIKE :like OR users.email ILIKE :like OR users.first_name ILIKE :like " \
+        "OR users.last_name ILIKE :like OR project_funding_topups.note ILIKE :like OR hcb_grant_cards.hcb_id ILIKE :like",
+        like: like
+      )
+    end
     topups_pagy, topups = pagy(topups_scope.order(created_at: :desc), limit: 25, page: params[:tp], page_param: :tp)
 
     # Warnings: third section on the page. Unresolved only by default; admin can
@@ -94,6 +106,7 @@ class Admin::ProjectGrants::OrdersController < Admin::ApplicationController
       topups: topups.map { |t| serialize_topup(t) },
       topups_pagy: pagy_props(topups_pagy),
       topup_status_filter: params[:topup_status].to_s,
+      topup_q: params[:topup_q].to_s,
       warnings: @warnings.map { |w| serialize_warning(w) },
       warnings_include_resolved: params[:include_resolved] == "1",
       warning_kind_descriptions: ProjectGrantWarning::KIND_DESCRIPTIONS,

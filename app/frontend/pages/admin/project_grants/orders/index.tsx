@@ -107,6 +107,7 @@ export default function AdminProjectGrantsOrdersIndex({
   topups,
   topups_pagy,
   topup_status_filter,
+  topup_q,
   warnings,
   warnings_include_resolved,
   warning_kind_descriptions,
@@ -123,6 +124,7 @@ export default function AdminProjectGrantsOrdersIndex({
   topups: Topup[]
   topups_pagy: PagyProps
   topup_status_filter: string
+  topup_q: string
   warnings: Warning[]
   warnings_include_resolved: boolean
   warning_kind_descriptions: Record<string, WarningKindDescription>
@@ -143,6 +145,7 @@ export default function AdminProjectGrantsOrdersIndex({
   const [showWarningDocs, setShowWarningDocs] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
+  const [topupSearch, setTopupSearch] = useState(topup_q)
 
   const selectableOrders = useMemo(() => orders.filter((o) => o.state !== 'fulfilled'), [orders])
   const allSelectableSelected = selectableOrders.length > 0 && selectableOrders.every((o) => selectedIds.has(o.id))
@@ -684,6 +687,38 @@ export default function AdminProjectGrantsOrdersIndex({
               {s.label}
             </Button>
           ))}
+          <form
+            // Reset tp to page 1 — the search changes which rows exist. Leaves orders' params alone.
+            onSubmit={(e) => {
+              e.preventDefault()
+              updateParams({ topup_q: topupSearch.trim() || null, tp: null })
+            }}
+            className="flex items-center gap-2 ml-auto"
+          >
+            <input
+              type="search"
+              value={topupSearch}
+              onChange={(e) => setTopupSearch(e.target.value)}
+              placeholder="Search user, note, or HCB grant…"
+              className="w-64 border border-input rounded-md px-3 py-1.5 text-sm bg-background"
+            />
+            <Button type="submit" variant="outline" size="sm">
+              Search
+            </Button>
+            {topup_q && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setTopupSearch('')
+                  updateParams({ topup_q: null, tp: null })
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </form>
         </div>
 
         <div className="overflow-x-auto rounded-md border border-border">
@@ -705,13 +740,17 @@ export default function AdminProjectGrantsOrdersIndex({
               {topups.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-6 text-center text-muted-foreground">
-                    No topups.
+                    {topup_q ? `No topups match “${topup_q}”.` : 'No topups.'}
                   </td>
                 </tr>
               ) : (
                 topups.map((t) => (
                   <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                    <td className="p-3 font-medium">{t.user.display_name}</td>
+                    <td className="p-3 font-medium">
+                      <Link href={`/admin/users/${t.user.id}`} className="text-primary hover:underline">
+                        {t.user.display_name}
+                      </Link>
+                    </td>
                     <td className="p-3">
                       <Badge variant={t.direction === 'out' ? 'destructive' : 'default'} className="font-mono">
                         {t.direction}

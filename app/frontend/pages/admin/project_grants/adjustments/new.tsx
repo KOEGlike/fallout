@@ -11,6 +11,10 @@ type LedgerData = {
   found: boolean
   user?: { id: number; display_name: string; email: string }
   has_card?: boolean
+  // False when the user has no active card (e.g. it was cancelled after a
+  // reimbursement). actual/expected are then $0-vs-nothing, so the gap math is
+  // meaningless and its warnings are suppressed below.
+  has_active_card?: boolean
   // actual = what HCB actually holds across this user's grant cards
   // expected = Fallout's ledger net (completed in-topups minus out-adjustments)
   actual_cents?: number
@@ -123,6 +127,10 @@ export default function AdminProjectGrantsAdjustmentsNew({
     : currentExpected
   const currentGap = currentActual - currentExpected
   const projectedGap = currentActual - projectedExpected
+  // Only meaningful when there's an active card behind the actual/expected figures.
+  // With no active card (e.g. a post-reimbursement entry on a cancelled card) the
+  // baseline is $0-vs-nothing, so the gap warnings are false alarms — suppress them.
+  const hasActiveCard = ledger?.has_active_card !== false
 
   return (
     <div className="max-w-xl">
@@ -422,27 +430,37 @@ export default function AdminProjectGrantsAdjustmentsNew({
                         <code>actual</code> (HCB) is unchanged — adjustments record movement that already happened on
                         HCB, they don't call the API.
                       </p>
-                      {currentGap !== 0 && projectedGap === 0 && (
-                        <p className="text-green-700">
-                          <strong>This adjustment closes the gap.</strong> After it lands, Fallout's ledger matches HCB
-                          exactly.
+                      {hasActiveCard ? (
+                        <>
+                          {currentGap !== 0 && projectedGap === 0 && (
+                            <p className="text-green-700">
+                              <strong>This adjustment closes the gap.</strong> After it lands, Fallout's ledger matches
+                              HCB exactly.
+                            </p>
+                          )}
+                          {currentGap === 0 && projectedGap !== 0 && (
+                            <p className="text-red-700">
+                              <strong>⚠ This will create a {formatDollars(Math.abs(projectedGap))} gap.</strong> Ledger
+                              and HCB currently match; this adjustment would push them out of sync. Only proceed if an
+                              out-of-band HCB event actually happened.
+                            </p>
+                          )}
+                          {currentGap !== 0 && projectedGap !== 0 && Math.abs(projectedGap) > Math.abs(currentGap) && (
+                            <p className="text-red-700">
+                              <strong>⚠ Gap grows:</strong> {formatDollars(Math.abs(currentGap))} →{' '}
+                              {formatDollars(Math.abs(projectedGap))}. This adjustment moves the ledger further from
+                              HCB, not closer. Double-check direction and amount.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p>
+                          <strong>No active card to compare against.</strong> This user's grant card is closed, so the
+                          actual-vs-ledger gap above is measured against $0 and isn't meaningful — ignore it. The row
+                          still records and settles correctly. (Expected when compensating for a reimbursement.)
                         </p>
                       )}
-                      {currentGap === 0 && projectedGap !== 0 && (
-                        <p className="text-red-700">
-                          <strong>⚠ This will create a {formatDollars(Math.abs(projectedGap))} gap.</strong> Ledger and
-                          HCB currently match; this adjustment would push them out of sync. Only proceed if an
-                          out-of-band HCB event actually happened.
-                        </p>
-                      )}
-                      {currentGap !== 0 && projectedGap !== 0 && Math.abs(projectedGap) > Math.abs(currentGap) && (
-                        <p className="text-red-700">
-                          <strong>⚠ Gap grows:</strong> {formatDollars(Math.abs(currentGap))} →{' '}
-                          {formatDollars(Math.abs(projectedGap))}. This adjustment moves the ledger further from HCB,
-                          not closer. Double-check direction and amount.
-                        </p>
-                      )}
-                      {projectedExpected < 0 && (
+                      {hasActiveCard && projectedExpected < 0 && (
                         <p className="text-red-700">
                           <strong>⚠ expected would go negative.</strong> That means more out-adjustments than in-topups
                           on record — almost always a mistake.
