@@ -99,7 +99,7 @@ export default function DesignReviewsIndex({
           noun="pending reviews"
           rowClassName={(row) =>
             row.priority
-              ? 'bg-green-50 dark:bg-green-950/20'
+              ? 'bg-green-200 dark:bg-green-900/40'
               : row.previously_reviewed_by_me
                 ? 'bg-blue-50 dark:bg-blue-950/20'
                 : undefined
