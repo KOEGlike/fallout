@@ -56,7 +56,7 @@ export default function BuildReviewsIndex({
           columns={buildPendingColumns(BASE_PATH, undefined, [], sla_days)}
           data={pending_reviews}
           noun="pending reviews"
-          rowClassName={(row) => (row.priority ? 'bg-green-200 dark:bg-green-900/40' : undefined)}
+          rowClassName={(row) => (row.priority ? 'bg-green-100 dark:bg-green-950/40' : undefined)}
         />
       </div>
 
