@@ -56,7 +56,13 @@ export default function TimeAuditsIndex({
           columns={buildPendingColumns(BASE_PATH, 'Requirements Check done', [], sla_days)}
           data={pending_reviews}
           noun="pending reviews"
-          rowClassName={(row) => (row.sibling_approved ? 'bg-yellow-50 dark:bg-yellow-950/20' : undefined)}
+          rowClassName={(row) =>
+            row.priority
+              ? 'bg-green-50 dark:bg-green-950/20'
+              : row.sibling_approved
+                ? 'bg-yellow-50 dark:bg-yellow-950/20'
+                : undefined
+          }
         />
       </div>
 
