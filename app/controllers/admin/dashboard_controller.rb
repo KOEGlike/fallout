@@ -387,16 +387,34 @@ class Admin::DashboardController < Admin::ApplicationController
     SQL
     submitted_by_day = submitted_by_day.to_h { |r| [ Date.parse(r["day"].to_s), r["seconds"].to_f ] }
 
-    # TA-approved seconds per completion date — chain separate .where.not calls so both
-    # conditions are AND'd (a single .where.not(a: nil, b: nil) generates OR logic in Rails)
-    approved_by_day = TimeAuditReview
-      .where(status: :approved)
-      .where.not(completed_at: nil)
-      .where.not(approved_public_seconds: nil)
-      .group("completed_at::date")
-      .sum(:approved_public_seconds)
-      .filter_map { |k, v| [ Date.parse(k.to_s), v ] if k.present? }
-      .to_h
+    # TA-approved seconds per completion date, excluding each project's one-time
+    # manual_seconds bonus (added to approved_public_seconds on the project's first
+    # approved ship — see TimeAuditReview#add_manual_seconds_to_approved). Those seconds
+    # don't come from a Recording, so they have no entry in submitted_by_day and would
+    # otherwise inflate cum_approved_s past cum_submitted_s.
+    approved_by_day = ActiveRecord::Base.connection.execute(<<~SQL.squish).to_a
+      WITH first_approved_ships AS (
+        SELECT id, project_id,
+               ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY created_at, id) AS rn
+        FROM ships
+        WHERE status = #{Ship.statuses[:approved]}
+      )
+      SELECT tar.completed_at::date AS day,
+             SUM(
+               tar.approved_public_seconds -
+               CASE WHEN fas.rn = 1 THEN p.manual_seconds ELSE 0 END
+             ) AS seconds
+      FROM time_audit_reviews tar
+      INNER JOIN ships s ON s.id = tar.ship_id
+      INNER JOIN projects p ON p.id = s.project_id
+      LEFT JOIN first_approved_ships fas ON fas.id = s.id
+      WHERE tar.status = #{TimeAuditReview.statuses[:approved]}
+        AND tar.completed_at IS NOT NULL
+        AND tar.approved_public_seconds IS NOT NULL
+      GROUP BY tar.completed_at::date
+      ORDER BY tar.completed_at::date
+    SQL
+    approved_by_day = approved_by_day.to_h { |r| [ Date.parse(r["day"].to_s), r["seconds"].to_f ] }
 
     # Ship count data (same structure as backlog_by_day)
     ships_by_day = Ship.where("created_at < ?", end_date.end_of_day)
