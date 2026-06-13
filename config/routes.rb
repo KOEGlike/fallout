@@ -4,6 +4,7 @@
 #                                             Prefix Verb   URI Pattern                                                                                   Controller#Action
 #                                                    GET    /(*path)(.:format)                                                                            redirect(301) {host: "127.0.0.1"}
 #                admin_requirements_design_dashboard GET    /admin/dashboard/requirements_design(.:format)                                                admin/dashboard#requirements_design
+#                           admin_ta_stats_dashboard GET    /admin/dashboard/ta_stats(.:format)                                                           admin/dashboard#ta_stats
 #                                admin_dev_dashboard GET    /admin/dashboard/dev(.:format)                                                                admin/dashboard#dev
 #                                         admin_root GET    /admin(.:format)                                                                              admin/dashboard#index
 #                admin_reviewer_reviewer_admin_notes POST   /admin/reviewers/:reviewer_id/notes(.:format)                                                 admin/reviewer_admin_notes#create
@@ -79,6 +80,7 @@
 #                                                           /flipper                                                                                      Flipper::UI
 #                update_manual_seconds_admin_project PATCH  /admin/projects/:id/update_manual_seconds(.:format)                                           admin/projects#update_manual_seconds
 #                       toggle_burnout_admin_project PATCH  /admin/projects/:id/toggle_burnout(.:format)                                                  admin/projects#toggle_burnout
+#                      toggle_unlisted_admin_project PATCH  /admin/projects/:id/toggle_unlisted(.:format)                                                 admin/projects#toggle_unlisted
 #                            update_roles_admin_user PATCH  /admin/users/:id/update_roles(.:format)                                                       admin/users#update_roles
 #                       update_streak_day_admin_user PATCH  /admin/users/:id/update_streak_day(.:format)                                                  admin/users#update_streak_day
 #                     restore_streak_goal_admin_user PATCH  /admin/users/:id/restore_streak_goal(.:format)                                                admin/users#restore_streak_goal
@@ -99,6 +101,9 @@
 #                                                    PATCH  /admin/shop_orders/:id(.:format)                                                              admin/shop_orders#update
 #                                                    PUT    /admin/shop_orders/:id(.:format)                                                              admin/shop_orders#update
 #                         approve_admin_ticket_claim PATCH  /admin/ticket_claims/:id/approve(.:format)                                                    admin/ticket_claims#approve
+#                          reject_admin_ticket_claim PATCH  /admin/ticket_claims/:id/reject(.:format)                                                     admin/ticket_claims#reject
+#                   bulk_approve_admin_ticket_claims PATCH  /admin/ticket_claims/bulk_approve(.:format)                                                   admin/ticket_claims#bulk_approve
+#                    bulk_reject_admin_ticket_claims PATCH  /admin/ticket_claims/bulk_reject(.:format)                                                    admin/ticket_claims#bulk_reject
 #                                admin_ticket_claims GET    /admin/ticket_claims(.:format)                                                                admin/ticket_claims#index
 #                             admin_koi_transactions GET    /admin/koi_transactions(.:format)                                                             admin/koi_transactions#index
 #                                                    POST   /admin/koi_transactions(.:format)                                                             admin/koi_transactions#create
@@ -209,6 +214,7 @@
 #                                new_lookout_session GET    /lookout_sessions/new(.:format)                                                               lookout_sessions#new
 #                                       claim_ticket GET    /claim-ticket(.:format)                                                                       ticket_claims#new
 #                                                    POST   /claim-ticket(.:format)                                                                       ticket_claims#create
+#                                     my_shop_orders GET    /orders(.:format)                                                                             shop_orders#index
 #                              shop_item_shop_orders POST   /shop/:shop_item_id/orders(.:format)                                                          shop_orders#create
 #                           new_shop_item_shop_order GET    /shop/:shop_item_id/orders/new(.:format)                                                      shop_orders#new
 #                               shop_item_shop_order GET    /shop/:shop_item_id/orders/:id(.:format)                                                      shop_orders#show
@@ -312,6 +318,9 @@ Rails.application.routes.draw do
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
+
+  # Dev-only UI sandbox for iterating on RepoDiffCard with mock data
+  get "dev/repo_diff_preview", to: "dev/repo_diff_preview#show" if Rails.env.development?
   constraints Constraints::StaffConstraint.new do
     namespace :admin do
       get "dashboard/requirements_design" => "dashboard#requirements_design", as: :requirements_design_dashboard

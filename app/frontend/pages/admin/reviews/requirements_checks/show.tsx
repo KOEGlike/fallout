@@ -47,12 +47,14 @@ import {
 } from 'lucide-react'
 import ProjectNotesWindow from '@/components/admin/ProjectNotesWindow'
 import RepoTree from '@/components/admin/RepoTree'
+import RepoDiffCard from '@/components/admin/RepoDiffCard'
 import { notify } from '@/lib/notifications'
 import type {
   RequirementsCheckReviewDetail,
   RequirementsCheckJournalEntry,
   PreflightCheck,
   RepoTreeData,
+  RepoDiffData,
   RequirementsCheckProjectContext,
   ReviewerNote,
   SiblingReview,
@@ -574,6 +576,7 @@ interface PageProps {
   sibling_statuses: SiblingReviews
   previous_reviews: PreviousReview[]
   repo_tree?: RepoTreeData | null
+  repo_diff?: RepoDiffData | null
   refresh_tree_path: string
   reviewer_notes?: ReviewerNote[]
   reviewer_notes_path: string
@@ -593,6 +596,7 @@ export default function RequirementsChecksShow({
   sibling_statuses,
   previous_reviews,
   repo_tree,
+  repo_diff,
   refresh_tree_path,
   reviewer_notes,
   reviewer_notes_path,
@@ -801,6 +805,7 @@ export default function RequirementsChecksShow({
       { key: '2', description: 'Toggle Previous Reviews' },
       { key: '3', description: 'Toggle Repo Info' },
       { key: '4', description: 'Toggle Journal' },
+      { key: '5', description: 'Toggle Changes Since Last Review' },
     ],
     [modKey],
   )
@@ -879,6 +884,7 @@ export default function RequirementsChecksShow({
       '2': { handler: () => (document.querySelector('[data-card-key="rc-previous-reviews"]') as HTMLElement)?.click() },
       '3': { handler: () => (document.querySelector('[data-card-key="rc-repo"]') as HTMLElement)?.click() },
       '4': { handler: () => (document.querySelector('[data-card-key="rc-journal"]') as HTMLElement)?.click() },
+      '5': { handler: () => (document.querySelector('[data-card-key="rc-repo-diff"]') as HTMLElement)?.click() },
     },
     // Always enabled — each individual handler short-circuits on terminal/submitting state.
   )
@@ -1163,6 +1169,16 @@ export default function RequirementsChecksShow({
               >
                 <RepoTree data={repo_tree} repoLink={project.repo_link} bare />
               </CollapsibleCard>
+            )}
+
+            {/* Changes since the last RC/DR/BR — re-ship review aid */}
+            {project.repo_link && (
+              <RepoDiffCard
+                data={repo_diff}
+                repoLink={project.repo_link}
+                storageKey="rc-repo-diff"
+                trailing={<Kbd variant="muted">5</Kbd>}
+              />
             )}
 
             {/* Journal — all entries shown inline */}

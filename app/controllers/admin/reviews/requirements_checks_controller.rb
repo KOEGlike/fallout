@@ -11,10 +11,11 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
     page_project_ids = (pending_reviews + @all_reviews).map { |r| r.ship.project_id }.uniq
     previously_reviewed = precompute_previously_reviewed_project_ids(page_project_ids)
     lifetime_hours = precompute_user_lifetime_hours(pending_reviews)
-    pending_reviews = pending_reviews.sort_by { |review| -(lifetime_hours[review.ship.project.user_id] || -1) } if sort == :hours
+    priority_ids = ReviewPriorityCalculator.priority_ship_ids(pending_reviews.map(&:ship))
+    pending_reviews = sort_pending(pending_reviews, sort, lifetime_hours, priority_ids)
 
     render inertia: {
-      pending_reviews: pending_reviews.map { |r| serialize_review_row(r, previously_reviewed_project_ids: previously_reviewed, user_lifetime_hours: lifetime_hours) },
+      pending_reviews: pending_reviews.map { |r| serialize_review_row(r, previously_reviewed_project_ids: previously_reviewed, user_lifetime_hours: lifetime_hours, priority_ship_ids: priority_ids) },
       all_reviews: @all_reviews.map { |r| serialize_review_row(r, flagged_project_ids: flagged_ids, previously_reviewed_project_ids: previously_reviewed) },
       pagy: pagy_props(@pagy),
       start_reviewing_path: next_admin_reviews_requirements_checks_path,
@@ -46,6 +47,7 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
       sibling_statuses: serialize_sibling_statuses(ship),
       previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: @review.repo_tree,
+      repo_diff: @review.repo_diff,
       refresh_tree_path: refresh_tree_admin_reviews_requirements_check_path(@review),
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),

@@ -38,12 +38,14 @@ import {
 } from 'lucide-react'
 import ProjectNotesWindow from '@/components/admin/ProjectNotesWindow'
 import RepoTree from '@/components/admin/RepoTree'
+import RepoDiffCard from '@/components/admin/RepoDiffCard'
 import { notify } from '@/lib/notifications'
 import type {
   BuildReviewDetail,
   RequirementsCheckJournalEntry,
   PreflightCheck,
   RepoTreeData,
+  RepoDiffData,
   RequirementsCheckProjectContext,
   ReviewerNote,
   SiblingReview,
@@ -484,6 +486,7 @@ interface PageProps {
   sibling_statuses: SiblingReviews
   previous_reviews: PreviousReview[]
   repo_tree?: RepoTreeData | null
+  repo_diff?: RepoDiffData | null
   reviewer_notes?: ReviewerNote[]
   reviewer_notes_path: string
   project_flagged: boolean
@@ -504,6 +507,7 @@ export default function BuildReviewsShow({
   sibling_statuses,
   previous_reviews,
   repo_tree,
+  repo_diff,
   reviewer_notes,
   reviewer_notes_path,
   project_flagged,
@@ -854,6 +858,11 @@ export default function BuildReviewsShow({
             >
               <RepoTree data={repo_tree} repoLink={project.repo_link} bare />
             </CollapsibleCard>
+          )}
+
+          {/* Changes since the last DR/BR — re-ship review aid */}
+          {project.repo_link && (
+            <RepoDiffCard data={repo_diff} repoLink={project.repo_link} storageKey="build-repo-diff" />
           )}
 
           {/* Journal — all entries shown inline */}

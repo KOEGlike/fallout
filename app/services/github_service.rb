@@ -38,6 +38,45 @@ module GithubService
     get("users/#{username}/repos", params)
   end
 
+  # Extracts [owner, repo] from a GitHub URL, or nil if it isn't one.
+  def parse_repo(url)
+    match = url&.match(%r{github\.com/([^/]+)/([^/]+?)(?:\.git)?(?:/|$)})
+    match && [ match[1], match[2] ]
+  end
+
+  # Latest commit SHA on the repo's default (or given) branch, or nil on error.
+  def head_commit_sha(owner, repo, branch = nil)
+    branch ||= self.repo(owner, repo).dig("default_branch") || "main"
+    data = get("repos/#{owner}/#{repo}/commits", sha: branch, per_page: 1)
+    data.is_a?(Array) ? data.first&.dig("sha") : nil
+  rescue Error
+    nil
+  end
+
+  # Most recent commit SHA at/before `until_time` on the branch — the date-based
+  # anchor used when a stored SHA is unavailable or was force-pushed away.
+  def commit_sha_at(owner, repo, until_time, branch = nil)
+    return nil unless until_time
+    branch ||= self.repo(owner, repo).dig("default_branch") || "main"
+    data = get("repos/#{owner}/#{repo}/commits", sha: branch, until: until_time.utc.iso8601, per_page: 1)
+    data.is_a?(Array) ? data.first&.dig("sha") : nil
+  rescue Error
+    nil
+  end
+
+  # Compares two refs and returns the commit count plus per-file change status
+  # (added/modified/removed/renamed). Returns nil on error — notably a 404 when
+  # `base` no longer exists in the repo (force-pushed), letting callers fall back.
+  def compare(owner, repo, base, head)
+    data = get("repos/#{owner}/#{repo}/compare/#{base}...#{head}")
+    {
+      total_commits: data["total_commits"],
+      files: (data["files"] || []).map { |f| { filename: f["filename"], status: f["status"] } }
+    }
+  rescue Error
+    nil
+  end
+
   def repo_tree(owner, repo, branch = nil)
     meta = self.repo(owner, repo)
     branch ||= meta.dig("default_branch") || "main"

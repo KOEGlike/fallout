@@ -15,6 +15,12 @@ class HoursStatsCalculator
     new.internal_approved_seconds_by_user
   end
 
+  # { user_id => public-approved_seconds }. Optionally bounded to project_ids so callers that
+  # only need a subset of users can skip scanning every approved ship in the program.
+  def self.public_approved_seconds_by_user(project_ids: nil)
+    new.public_approved_seconds_by_user(project_ids: project_ids)
+  end
+
   def logged_seconds_by_user
     result = Hash.new(0)
     add_journal_shares(result, journal_attribution)
@@ -29,9 +35,25 @@ class HoursStatsCalculator
       .where(projects: { discarded_at: nil })
       .group("projects.id")
       .sum(Arel.sql("COALESCE(ships.approved_public_seconds, 0) + COALESCE(design_reviews.hours_adjustment, 0) + COALESCE(build_reviews.hours_adjustment, 0)"))
-    return {} if internal_by_project.empty?
+    proportional_by_user(internal_by_project)
+  end
 
-    candidate_ids = internal_by_project.keys
+  def public_approved_seconds_by_user(project_ids: nil)
+    scope = Ship.where(status: :approved).joins(:project).where(projects: { discarded_at: nil })
+    scope = scope.where(projects: { id: project_ids }) if project_ids
+    public_by_project = scope.group("projects.id").sum(:approved_public_seconds)
+    proportional_by_user(public_by_project)
+  end
+
+  private
+
+  # Splits each project's value among its members by their share of the project's approved-cycle
+  # journal time (journal_seconds / attribution_size), then sums per user. value_by_project maps
+  # { project_id => seconds to distribute }.
+  def proportional_by_user(value_by_project)
+    return {} if value_by_project.empty?
+
+    candidate_ids = value_by_project.keys
 
     # Journal entries claimed by approved ships on the candidate projects — the approved-cycle
     # denominator/numerator, matching batch_approved_cycle_attribution.
@@ -63,15 +85,13 @@ class HoursStatsCalculator
     candidate_ids.each do |pid|
       total = total_by_project[pid].to_i
       next unless total.positive?
-      internal = internal_by_project[pid].to_i
+      value = value_by_project[pid].to_i
       user_by_project[pid].each do |uid, user_share|
-        result[uid] += (internal * user_share) / total
+        result[uid] += (value * user_share) / total
       end
     end
     result
   end
-
-  private
 
   # { je_id => [attributed_user_id, ...] } — the journal's author plus its kept, non-discarded
   # collaborators, exactly the attribution set used by JournalEntry.batch_user_attributed_seconds.

@@ -9,7 +9,9 @@
 #  feedback               :text
 #  internal_reason        :text
 #  lock_version           :integer          default(0), not null
+#  repo_diff              :jsonb
 #  repo_tree              :jsonb
+#  reviewed_commit_sha    :string
 #  status                 :integer          default("pending"), not null
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null
@@ -36,6 +38,11 @@ class RequirementsCheckReview < ApplicationRecord
 
   def self.review_id_prefix
     "RC"
+  end
+
+  # RC's repo diff is measured since the last completed code review of any kind.
+  def self.repo_diff_anchor_classes
+    [ RequirementsCheckReview, DesignReview, BuildReview ]
   end
 
   def self.extra_review_field_mappings

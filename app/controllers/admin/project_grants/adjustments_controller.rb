@@ -48,6 +48,10 @@ class Admin::ProjectGrants::AdjustmentsController < Admin::ApplicationController
       found: true,
       user: { id: user.id, display_name: user.display_name, email: user.email },
       has_card: user.hcb_grant_cards.exists?,
+      # No active card → actual/expected are both $0 against nothing, so the gap math
+      # is meaningless (e.g. a post-reimbursement entry on a now-cancelled card).
+      # Frontend uses this to suppress the misleading "creates a gap" warnings.
+      has_active_card: active_card_ids.any?,
       actual_cents: HcbGrantCard.where(id: active_card_ids).sum(:amount_cents),
       expected_cents: ProjectFundingTopup.kept.where(status: "completed", hcb_grant_card_id: active_card_ids).sum(
         Arel.sql("CASE direction WHEN 'out' THEN -amount_cents ELSE amount_cents END")

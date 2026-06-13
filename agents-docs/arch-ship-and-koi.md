@@ -141,6 +141,15 @@ Created by `Ship#ensure_phase_two_review!` only after `phase_one_complete?` (bot
 
 Both share most schema: `feedback`, `internal_reason`, `hours_adjustment` (private add-on to public TA hours), `annotations` jsonb. The currency-adjustment column differs by type because the two reviews issue different currencies — **DR has `koi_adjustment`** (added to koi award), **BR has `gold_adjustment`** (added to gold award). See §10 for the full DR-koi / BR-gold / built-irl-conversion mechanics. Both reviews are gated to `pass2_reviewer` only.
 
+### "Changes Since Last Review" (re-ship diff)
+RC, DR, and BR show pages surface a `RepoDiffCard` (`repo_diff` jsonb column) summarizing what changed in the repo since the previous relevant review — file add/modify/remove/rename counts + commit count, rendered as a clickable tree linking to each file's GitHub diff. Built for re-ships.
+
+- **Computed once on creation, like `repo_tree`**: `Reviewable` runs `after_create_commit :compute_repo_diff` → `ComputeReviewRepoDiffJob` (gated by `respond_to?(:repo_diff)` so TA is skipped), which calls `ReviewRepoDiffService.for_review` and stores the summary in the review's `repo_diff` column. The controllers read `@review.repo_diff` directly (not deferred). The diff therefore reflects the repo near submission and can lag slightly behind later pushes — an accepted trade-off matching `repo_tree`.
+- **Anchor scope differs by review type**: RC diffs against the last completed **RC/DR/BR**; DR/BR diff against the last completed **DR/BR** — declared per class via `repo_diff_anchor_classes` and resolved by `ReviewRepoDiffService.anchor_review_for` (most recent terminal review of those classes for the project, excluding the current ship).
+- **SHA-anchored with date fallback**: RC/DR/BR carry a `reviewed_commit_sha` column, captured on terminal transition by `CaptureReviewCommitShaJob` (enqueued from `Reviewable#capture_reviewed_commit_sha`). The service compares the anchor's stored SHA against current HEAD; if the SHA is missing (older reviews) or force-pushed out of the repo (compare 404s), it falls back to the commit at the anchor review's `completed_at`.
+- **GitHub plumbing**: `GithubService.compare` (commit count + per-file status), `head_commit_sha`, `commit_sha_at` (date fallback), and `parse_repo` (shared owner/repo extraction, also used by `FetchRepoTreeJob`).
+- The `5` keyboard shortcut toggles the card on RC and DR show pages (BR intentionally has no shortcut).
+
 Admin-only swap (`Ship#swap_phase_two_type!`) moves a pending Phase 2 review between DR and BR. The swap maps DR's `koi_adjustment` ↔ BR's `gold_adjustment` (same semantic knob — a signed integer credit/debit on the hours-derived currency) and preserves the review's `created_at` so queue wait time stays intact.
 
 Time Audit now rejects link-only feedback in the admin controller (`Admin::Reviews::TimeAuditsController#update`). If `feedback` consists only of one or more `http(s)` URLs, the update is rejected with an inline validation error requiring written explanation.
@@ -165,7 +174,7 @@ Shared by all 4 review types. Provides:
 - `claim_expires_at`, `reviewer_id` columns
 - `atomic_claim!(review_id, user)` — single `UPDATE … WHERE … status=pending AND (reviewer_id IS NULL OR reviewer_id = uid OR claim_expires_at IS NULL OR claim_expires_at <= now)`. Returns true iff one row updated. Race-safe.
 - `release_all_claims!(user)` — wipes claim cols for any pending claims by user; preserves `reviewer_id` audit trail on terminal reviews.
-- `active_claim_for(user)`, `available_for(user)`, `next_eligible(user, skip_ids:, sort:)` — queue helpers. `sort:` is `:waiting` (default, oldest ship first) or `:hours` (most TA-approved lifetime hours for the project owner first); both prioritize the user's own claim.
+- `active_claim_for(user)`, `available_for(user)`, `next_eligible(user, skip_ids:, sort:)` — queue helpers. `sort:` is `:waiting` (default, oldest ship first, with the +2d priority boost) or `:hours` (most TA-approved lifetime hours for the project owner first); both prioritize the user's own claim.
 - `extend_claim!`, `release_claim!` — instance helpers
 - "One claim at a time across types": `Admin::Reviews::BaseController#claim_review!` calls `release_all_claims!` for ALL `Reviewable::REVIEW_MODELS` before atomically claiming the new one.
 
@@ -192,7 +201,7 @@ Each review's `Policy#update?` requires `record.pending? && (admin? || active_cl
 ### Heartbeat & Skip Flow
 
 - `POST /admin/reviews/:type/:id/heartbeat` — extends claim by `CLAIM_DURATION` (10min) if `claimed_by?(current_user)`. Returns JSON `{ok, expires_at}` or 409 `{error: "claim_lost"}`. The frontend `useReviewHeartbeat` hook (`app/frontend/hooks/useReviewHeartbeat.ts`) beats every **2 minutes** (`HEARTBEAT_INTERVAL_MS`) and alerts on 409 or 2 consecutive failures.
-- `GET /admin/reviews/:type/next?skip=1,2,3&sort=waiting|hours` — `next_eligible` orders by "your existing claim first, then oldest pending (or most owner-hours when `sort=hours`)." The chosen sort persists in session across PATCH/redirect cycles. Reviewers click "skip" to avoid a tricky review and add it to the URL skip list.
+- `GET /admin/reviews/:type/next?skip=1,2,3&sort=waiting|hours` — `next_eligible` orders by "your existing claim first, then oldest pending (or most owner-hours when `sort=hours`)." The chosen sort persists in session across PATCH/redirect cycles. Reviewers click "skip" to avoid a tricky review and add it to the URL skip list. In `:waiting` mode, **priority** ships get a `ReviewPriorityCalculator::WAIT_BOOST` (+2 days) handicap applied to their real wait *for ordering math only* — the actual wait is unchanged. Because priority needs the proportional approved-hours pass, the waiting branch resolves it in Ruby over the candidate set instead of in SQL.
 - `redirect_to_next_or_index` (called after approve/return/reject) — clears `claim_expires_at` (keeps `reviewer_id` for audit), appends current id to skip list, redirects to `next`.
 - Admin viewing a review they don't own enters "supervisory mode" — no claim taken, no redirect.
 - Any queue reviewer can open a **completed** (non-pending) review read-only — `claim_review!` no longer redirects non-admins away from terminal reviews; `show?` still authorizes the queue role (and blocks flagged for non-admins) and `update?` (pending-only) keeps it view-only. The `useReviewHeartbeat` hook is passed `enabled = !isTerminal`, so read-only views send no heartbeats (no false "session expired" alert). A still-pending review claimed by someone else continues to auto-advance to `next`.
@@ -200,8 +209,10 @@ Each review's `Policy#update?` requires `record.pending? && (admin? || active_cl
 ### Admin/Reviewer Index Pages
 
 Each review controller's `#index` returns:
-- `pending_reviews`: `policy_scope.pending.where.not(ship_id: flagged_ship_ids).order(:created_at)` — the working queue.
+- `pending_reviews`: `policy_scope.pending.where.not(ship_id: flagged_ship_ids).order(:created_at)`, then re-sorted in Ruby via `sort_pending` (`:hours` → owner lifetime hours desc; otherwise real wait with the +2d priority boost). The working queue.
 - `all_reviews`: paginated by `created_at desc` for full history. Flagged projects shown but visually marked.
+
+**Priority rows (`ReviewPriorityCalculator`)**: a pending ship is flagged `priority: true` when ANY one collaborator (owner or kept collaborator), evaluated independently, either (a) already has ≥50h of proportional approved public hours, or (b) would cross 60h once this ship's hours land — (b) only applies once the Time Audit has approved (so the ship's eventual hours are known). Approved hours use the live per-user proportional total (`HoursStatsCalculator.public_approved_seconds_by_user`, bounded to the members' attributable approved projects). Priority rows render with a green background (precedence: green > blue `previously_reviewed_by_me` > yellow `sibling_approved`) and receive the +2d ordering boost in both the index and `next_eligible`. Computed in bulk for the whole page — no per-row queries.
 
 `flagged_ship_ids = Ship.where(project_id: ProjectFlag.select(:project_id)).select(:id)` — flagged projects are hidden from the queue but visible in the all-table.
 

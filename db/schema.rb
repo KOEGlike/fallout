@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_13_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -106,6 +106,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
     t.integer "hours_adjustment"
     t.text "internal_reason"
     t.integer "lock_version", default: 0, null: false
+    t.jsonb "repo_diff"
+    t.string "reviewed_commit_sha"
     t.bigint "reviewer_id"
     t.bigint "ship_id", null: false
     t.integer "status", default: 0, null: false
@@ -181,6 +183,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
     t.text "internal_reason"
     t.integer "koi_adjustment"
     t.integer "lock_version", default: 0, null: false
+    t.jsonb "repo_diff"
+    t.string "reviewed_commit_sha"
     t.bigint "reviewer_id"
     t.bigint "ship_id", null: false
     t.integer "status", default: 0, null: false
@@ -628,7 +632,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
     t.text "feedback"
     t.text "internal_reason"
     t.integer "lock_version", default: 0, null: false
+    t.jsonb "repo_diff"
     t.jsonb "repo_tree"
+    t.string "reviewed_commit_sha"
     t.bigint "reviewer_id"
     t.bigint "ship_id", null: false
     t.integer "status", default: 0, null: false
@@ -1003,6 +1009,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
     t.integer "streak_freezes", default: 1, null: false
     t.boolean "streak_in_app_notifications", default: true, null: false
     t.boolean "streak_slack_notifications", default: true, null: false
+    t.string "summit_rsvp"
     t.integer "ticket_hours_override"
     t.string "timezone", null: false
     t.string "type"

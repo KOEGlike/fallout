@@ -39,6 +39,14 @@ module Reviewable
     # Update Ship's cached status in the SAME transaction (not after_commit) to prevent drift
     after_save :recompute_ship_status!, if: :saved_change_to_status?
 
+    # On terminal transition, snapshot the repo HEAD so the next ship can diff against it.
+    # Only the code-review types (RC/DR/BR) carry reviewed_commit_sha — TA has no column.
+    after_save :capture_reviewed_commit_sha, if: :saved_change_to_status?
+
+    # On creation, compute "changes since last review" once and cache it in repo_diff
+    # (like repo_tree). Only RC/DR/BR carry the column — TA is skipped.
+    after_create_commit :compute_repo_diff
+
     # Backfill reviewer_id on terminal transitions when the claim was lost mid-session.
     # See #stamp_finalizing_reviewer for the full rationale.
     before_update :stamp_finalizing_reviewer
@@ -184,7 +192,16 @@ module Reviewable
           SQL
         ).first
       else
-        scope.order(own_claim_first, "ships.created_at ASC").first
+        # Priority ships get a +WAIT_BOOST handicap on their real wait (ordering only). Computing
+        # priority needs the proportional approved-hours pass, so resolve it in Ruby over the
+        # candidate set rather than in SQL. Own claim still wins regardless of priority.
+        candidates = scope.includes(ship: :time_audit_review).to_a
+        return nil if candidates.empty?
+        priority_ids = ReviewPriorityCalculator.priority_ship_ids(candidates.map(&:ship))
+        candidates.min_by do |review|
+          [ review.reviewer_id == user.id ? 0 : 1,
+            review.ship.created_at - (priority_ids.include?(review.ship_id) ? ReviewPriorityCalculator::WAIT_BOOST : 0) ]
+        end
       end
     end
   end
@@ -203,6 +220,18 @@ module Reviewable
   def set_completed_at
     return if completed_at.present?
     self.completed_at = Time.current if TERMINAL_STATUSES.include?(status)
+  end
+
+  def capture_reviewed_commit_sha
+    return unless respond_to?(:reviewed_commit_sha) # TA has no such column
+    return unless %w[approved returned rejected].include?(status)
+    return if reviewed_commit_sha.present?
+    CaptureReviewCommitShaJob.perform_later(self.class.name, id)
+  end
+
+  def compute_repo_diff
+    return unless respond_to?(:repo_diff) # TA has no such column
+    ComputeReviewRepoDiffJob.perform_later(self.class.name, id)
   end
 
   def recompute_ship_status!

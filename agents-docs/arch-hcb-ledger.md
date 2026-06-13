@@ -163,6 +163,55 @@ If a user's card was canceled between the donation submit and our match, the don
 
 ---
 
+## 4.6. Reimbursements (Manual Compensation)
+
+An HCB **reimbursement** pays a user a fixed amount for an out-of-pocket expense, then **cancels the grant card**. The reimbursement report lives entirely on HCB, outside Fallout's access — **to us it is indistinguishable from a normal card cancellation.** There is no transaction row, no `card_charge`, no signal. This is the exception, not the norm; there is **no automation** and none is planned. An admin compensates by hand.
+
+### Why the auto closure refund gets it wrong on its own
+
+[Closure refund (§4)](#4-closure-refund-auto-booking) computes `unspent = ledger_net − spent_cents`, where `spent_cents` counts **only card purchases** (`HcbTransaction.purchases`). A reimbursement is not a purchase, so it never lands in `spent_cents`. The job therefore treats the reimbursed dollars as **unspent-and-returned** and books them into a `counts_toward_funding: true` `out` row — replenishing the user's entitlement for money that was actually **spent**. The user gets reimbursed *and* keeps the entitlement: real money double-counted.
+
+The closure refund only knows two buckets — *spent on card* vs *returned to org*. A reimbursement is a third bucket (*spent, invisible*) it cannot see. Since the cancel looks normal, **only a human can supply the missing fact.**
+
+### The fix: one compensating `in` adjustment
+
+Book a single manual adjustment ([adjustments form](../app/controllers/admin/project_grants/adjustments_controller.rb)) for the reimbursed user:
+
+| Field | Value |
+|---|---|
+| Direction | **`in`** |
+| Amount | the reimbursed amount |
+| Counts toward funding | **✅ true** |
+| Note | e.g. `Reimbursement: $30 paid via HCB reimbursement report on cancelled card #<hcb_id>. Booked in to reverse the portion of the auto closure refund that was actually spent, not returned.` |
+
+**Timing: do this _after_ the auto closure refund has booked** (the first sync pass after the cancel, ≤15 min) **and _before_ issuing any replacement card.** Working from the post-refund state is deterministic; racing the sync job is not. The before-replacement rule matters because the adjustments form attaches the row to `active.first || most-recent` ([adjustments_controller.rb](../app/controllers/admin/project_grants/adjustments_controller.rb)): with no active card it lands on the cancelled card (correct, and outside the active-card divergence scan); if a new active card exists it attaches there instead and trips a spurious `ledger_divergence` on the live card. The `delta` correction is user-level so entitlement is right either way — but the misattribution creates warning noise.
+
+**Why `in` / `counts_toward_funding: true` — and not `out` / `false`:** entitlement only moves on `counts_toward_funding: true` rows, and an `out` *raises* entitlement (it's a refund). The auto closure refund already over-replenished by the reimbursed amount via a `true` `out`. Only a `true` **`in`** pushes entitlement back **down** to correct it. An `out`/`false` row would be a documentary no-op — it touches neither `funding_transferred_usd_cents` nor `delta`.
+
+### Math ($50 card, $30 reimbursed, $20 genuinely unspent)
+
+```
+order placed:        expected = $50
+auto closure refund: out $50, counts:true → funding_transferred = $50−$50 = $0  → delta = $50  ✗ (over by the $30)
+compensating entry:  in  $30, counts:true → funding_transferred = $80−$50 = $30 → delta = $20  ✓
+```
+
+End state: the user has exactly **$20** of entitlement left for their next card; the $30 reimbursement is correctly recorded as spent. No HCB API call fires — manual adjustments are ledger-only.
+
+### Does this trip any warning? No.
+
+- `ledger_divergence` — scopes to **active** cards; the reimbursed card is cancelled → skipped (same reason closed cards always diverge, see §5).
+- `negative_transferred` — fires only if the user's net transferred goes **negative**; an `in` pushes it the safe way ($50−$50+$30 = +$30).
+- `pending_topup_stuck` / `dangling_card` — irrelevant (row is `completed`; card has an `hcb_id`).
+
+The closed card's HCB `amount_cents` ($50) now diverges from its `ledger_net` ($30), but that gap is **intentional and ignored** for every closed card — the reimbursement just makes it $30 instead of the usual $20.
+
+### Preview when there's no active card
+
+The adjustment form's live "current → projected" preview sums **active cards only** ([§6](#6-admin-ui-scoping-rules)). For a cancelled card both `actual` and `expected` come back $0, so projecting an entry against that $0 baseline would otherwise fire a bogus red "⚠ creates a gap / missing from HCB" warning. The `ledger` sidecar therefore returns **`has_active_card`**, and the form suppresses the gap/divergence warnings (and the negative-expected warning) whenever it's false, replacing them with a neutral "no active card to compare against — ignore the gap" note. The row still saves and settles correctly; the gap on the closed card is intentional and ignored (§5).
+
+---
+
 ## 5. Divergence Detection
 
 [`ProjectGrantWarning`](../app/models/project_grant_warning.rb) is the surface for ledger anomalies. Detection runs in two places:
@@ -226,6 +275,7 @@ Per [AGENTS.md](../AGENTS.md) and the actual policies:
 | `transferred_usd_cents` vs `funding_transferred_usd_cents` | Two different sums. Plain `transferred` includes everything; `funding_` excludes manual out-of-band adjustments (`counts_toward_funding: false`). The settle service uses `funding_`; user-level math uses `transferred`. |
 | Ratchet uses live HCB data | `ratchet_send_amount!` does NOT rescue Faraday errors — stale data could allow over-sending, so failures abort and let ActiveJob retry. |
 | Closed-card warning ghosts | Unresolved warnings created before closure-refund auto-booking shipped do not auto-resolve. Admins must clear them via the warnings UI. |
+| Reimbursements look like normal cancels | HCB reimbursements cancel the card with no visible signal, so the auto closure refund wrongly replenishes the reimbursed amount. Admin must book a compensating `in`/`counts:true` adjustment after the refund — see §4.6. |
 
 ---
 

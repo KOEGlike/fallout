@@ -2,20 +2,22 @@
 #
 # Table name: build_reviews
 #
-#  id               :bigint           not null, primary key
-#  annotations      :jsonb
-#  claim_expires_at :datetime
-#  completed_at     :datetime
-#  feedback         :text
-#  gold_adjustment  :integer
-#  hours_adjustment :integer
-#  internal_reason  :text
-#  lock_version     :integer          default(0), not null
-#  status           :integer          default("pending"), not null
-#  created_at       :datetime         not null
-#  updated_at       :datetime         not null
-#  reviewer_id      :bigint
-#  ship_id          :bigint           not null
+#  id                  :bigint           not null, primary key
+#  annotations         :jsonb
+#  claim_expires_at    :datetime
+#  completed_at        :datetime
+#  feedback            :text
+#  gold_adjustment     :integer
+#  hours_adjustment    :integer
+#  internal_reason     :text
+#  lock_version        :integer          default(0), not null
+#  repo_diff           :jsonb
+#  reviewed_commit_sha :string
+#  status              :integer          default("pending"), not null
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  reviewer_id         :bigint
+#  ship_id             :bigint           not null
 #
 # Indexes
 #
@@ -35,6 +37,11 @@ class BuildReview < ApplicationRecord
 
   def self.review_id_prefix
     "BR"
+  end
+
+  # Phase-two repo diff is measured since the last completed phase-two review.
+  def self.repo_diff_anchor_classes
+    [ DesignReview, BuildReview ]
   end
 
   def self.extra_review_field_mappings

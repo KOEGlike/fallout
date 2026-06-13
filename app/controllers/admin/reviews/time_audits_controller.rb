@@ -1,15 +1,17 @@
 class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
   def index
     base = policy_scope(TimeAuditReview)
-      .includes(ship: [ :project, :requirements_check_review, project: :user ], reviewer: [])
+      .includes(ship: [ :project, :requirements_check_review, :time_audit_review, project: :user ], reviewer: [])
 
     pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).order(created_at: :asc).load
     @pagy, @all_reviews = pagy(base.order(created_at: :desc))
     flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
     Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
+    priority_ids = ReviewPriorityCalculator.priority_ship_ids(pending_reviews.map(&:ship))
+    pending_reviews = sort_pending(pending_reviews, nil, {}, priority_ids)
 
     render inertia: {
-      pending_reviews: pending_reviews.map { |r| serialize_review_row(r) },
+      pending_reviews: pending_reviews.map { |r| serialize_review_row(r, priority_ship_ids: priority_ids) },
       all_reviews: @all_reviews.map { |r| serialize_review_row(r, flagged_project_ids: flagged_ids) },
       pagy: pagy_props(@pagy),
       start_reviewing_path: next_admin_reviews_time_audits_path,

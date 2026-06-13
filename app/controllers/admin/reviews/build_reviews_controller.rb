@@ -10,9 +10,11 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
     @pagy, @all_reviews = pagy(base.order(created_at: :desc))
     flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
     Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
+    priority_ids = ReviewPriorityCalculator.priority_ship_ids(pending_reviews.map(&:ship))
+    pending_reviews = sort_pending(pending_reviews, nil, {}, priority_ids)
 
     render inertia: {
-      pending_reviews: pending_reviews.map { |r| serialize_review_row(r) },
+      pending_reviews: pending_reviews.map { |r| serialize_review_row(r, priority_ship_ids: priority_ids) },
       all_reviews: @all_reviews.map { |r| serialize_review_row(r, flagged_project_ids: flagged_ids) },
       pagy: pagy_props(@pagy),
       start_reviewing_path: next_admin_reviews_build_reviews_path,
@@ -58,6 +60,7 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
       sibling_statuses: serialize_sibling_statuses(ship),
       previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: ship.requirements_check_review&.repo_tree,
+      repo_diff: @review.repo_diff,
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),
       project_flagged: project.flagged?,
