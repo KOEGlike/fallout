@@ -47,7 +47,7 @@ class Admin::Reviews::RequirementsChecksController < Admin::Reviews::BaseControl
       sibling_statuses: serialize_sibling_statuses(ship),
       previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: @review.repo_tree,
-      repo_diff: InertiaRails.defer { serialize_repo_diff(ship, RequirementsCheckReview, DesignReview, BuildReview) },
+      repo_diff: @review.repo_diff,
       refresh_tree_path: refresh_tree_admin_reviews_requirements_check_path(@review),
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),

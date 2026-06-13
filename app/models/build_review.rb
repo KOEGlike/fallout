@@ -11,6 +11,7 @@
 #  hours_adjustment    :integer
 #  internal_reason     :text
 #  lock_version        :integer          default(0), not null
+#  repo_diff           :jsonb
 #  reviewed_commit_sha :string
 #  status              :integer          default("pending"), not null
 #  created_at          :datetime         not null
@@ -36,6 +37,11 @@ class BuildReview < ApplicationRecord
 
   def self.review_id_prefix
     "BR"
+  end
+
+  # Phase-two repo diff is measured since the last completed phase-two review.
+  def self.repo_diff_anchor_classes
+    [ DesignReview, BuildReview ]
   end
 
   def self.extra_review_field_mappings

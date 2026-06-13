@@ -43,6 +43,10 @@ module Reviewable
     # Only the code-review types (RC/DR/BR) carry reviewed_commit_sha — TA has no column.
     after_save :capture_reviewed_commit_sha, if: :saved_change_to_status?
 
+    # On creation, compute "changes since last review" once and cache it in repo_diff
+    # (like repo_tree). Only RC/DR/BR carry the column — TA is skipped.
+    after_create_commit :compute_repo_diff
+
     # Backfill reviewer_id on terminal transitions when the claim was lost mid-session.
     # See #stamp_finalizing_reviewer for the full rationale.
     before_update :stamp_finalizing_reviewer
@@ -223,6 +227,11 @@ module Reviewable
     return unless %w[approved returned rejected].include?(status)
     return if reviewed_commit_sha.present?
     CaptureReviewCommitShaJob.perform_later(self.class.name, id)
+  end
+
+  def compute_repo_diff
+    return unless respond_to?(:repo_diff) # TA has no such column
+    ComputeReviewRepoDiffJob.perform_later(self.class.name, id)
   end
 
   def recompute_ship_status!

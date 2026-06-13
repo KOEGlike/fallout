@@ -60,7 +60,7 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
       sibling_statuses: serialize_sibling_statuses(ship),
       previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: ship.requirements_check_review&.repo_tree,
-      repo_diff: InertiaRails.defer { serialize_repo_diff(ship, DesignReview, BuildReview) },
+      repo_diff: @review.repo_diff,
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),
       project_flagged: project.flagged?,
