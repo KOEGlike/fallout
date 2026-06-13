@@ -1003,6 +1003,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_204847) do
     t.integer "streak_freezes", default: 1, null: false
     t.boolean "streak_in_app_notifications", default: true, null: false
     t.boolean "streak_slack_notifications", default: true, null: false
+    t.string "summit_rsvp"
     t.integer "ticket_hours_override"
     t.string "timezone", null: false
     t.string "type"
