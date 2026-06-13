@@ -155,6 +155,27 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     end.sort_by { |updated_at, _| -updated_at.to_i }.map(&:last)
   end
 
+  # "Changes since last review" for re-ships. RC diffs against the last completed
+  # RC/DR/BR; DR/BR diff against the last completed DR/BR (caller passes the classes).
+  # Deferred — wraps GitHub API calls, kept off the critical path.
+  def serialize_repo_diff(ship, *anchor_classes)
+    anchor = last_completed_repo_review(ship, *anchor_classes)
+    ReviewRepoDiffService.call(ship:, anchor_review: anchor)
+  end
+
+  # Most recent terminal review of the given classes for this project, excluding
+  # the current ship (its own reviews are the ones being worked on, not a prior baseline).
+  def last_completed_repo_review(ship, *anchor_classes)
+    anchor_classes.filter_map do |klass|
+      klass.joins(:ship)
+        .where(ships: { project_id: ship.project_id })
+        .where.not(ship_id: ship.id)
+        .where.not(completed_at: nil)
+        .order(completed_at: :desc)
+        .first
+    end.max_by(&:completed_at)
+  end
+
   def serialize_reviewer_notes(project)
     project.reviewer_notes.includes(:user).order(created_at: :desc).map do |note|
       {

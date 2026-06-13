@@ -10,6 +10,7 @@
 #  internal_reason        :text
 #  lock_version           :integer          default(0), not null
 #  repo_tree              :jsonb
+#  reviewed_commit_sha    :string
 #  status                 :integer          default("pending"), not null
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null

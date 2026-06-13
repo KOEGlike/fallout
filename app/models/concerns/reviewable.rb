@@ -39,6 +39,10 @@ module Reviewable
     # Update Ship's cached status in the SAME transaction (not after_commit) to prevent drift
     after_save :recompute_ship_status!, if: :saved_change_to_status?
 
+    # On terminal transition, snapshot the repo HEAD so the next ship can diff against it.
+    # Only the code-review types (RC/DR/BR) carry reviewed_commit_sha — TA has no column.
+    after_save :capture_reviewed_commit_sha, if: :saved_change_to_status?
+
     # Backfill reviewer_id on terminal transitions when the claim was lost mid-session.
     # See #stamp_finalizing_reviewer for the full rationale.
     before_update :stamp_finalizing_reviewer
@@ -212,6 +216,13 @@ module Reviewable
   def set_completed_at
     return if completed_at.present?
     self.completed_at = Time.current if TERMINAL_STATUSES.include?(status)
+  end
+
+  def capture_reviewed_commit_sha
+    return unless respond_to?(:reviewed_commit_sha) # TA has no such column
+    return unless %w[approved returned rejected].include?(status)
+    return if reviewed_commit_sha.present?
+    CaptureReviewCommitShaJob.perform_later(self.class.name, id)
   end
 
   def recompute_ship_status!

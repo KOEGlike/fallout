@@ -330,6 +330,25 @@ export interface RepoTreeData {
   created_at: string | null
 }
 
+export interface RepoDiffFile {
+  filename: string
+  status: string
+}
+
+export interface RepoDiffData {
+  commits: number
+  added: number
+  modified: number
+  removed: number
+  renamed: number
+  files: RepoDiffFile[]
+  basis: 'sha' | 'date'
+  since: string | null
+  anchor_review_type: string
+  base_sha: string
+  head_sha: string
+}
+
 export interface PreflightCheck {
   key: string
   label: string

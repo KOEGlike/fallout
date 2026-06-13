@@ -46,12 +46,14 @@ import {
 } from 'lucide-react'
 import ProjectNotesWindow from '@/components/admin/ProjectNotesWindow'
 import RepoTree from '@/components/admin/RepoTree'
+import RepoDiffCard from '@/components/admin/RepoDiffCard'
 import { notify } from '@/lib/notifications'
 import type {
   DesignReviewDetail,
   RequirementsCheckJournalEntry,
   PreflightCheck,
   RepoTreeData,
+  RepoDiffData,
   RequirementsCheckProjectContext,
   ReviewerNote,
   SiblingReview,
@@ -573,6 +575,7 @@ interface PageProps {
   sibling_statuses: SiblingReviews
   previous_reviews: PreviousReview[]
   repo_tree?: RepoTreeData | null
+  repo_diff?: RepoDiffData | null
   reviewer_notes?: ReviewerNote[]
   reviewer_notes_path: string
   project_flagged: boolean
@@ -592,6 +595,7 @@ export default function DesignReviewsShow({
   sibling_statuses,
   previous_reviews,
   repo_tree,
+  repo_diff,
   reviewer_notes,
   reviewer_notes_path,
   project_flagged,
@@ -781,6 +785,7 @@ export default function DesignReviewsShow({
       { key: '2', description: 'Toggle Previous Reviews' },
       { key: '3', description: 'Toggle Repo Info' },
       { key: '4', description: 'Toggle Journal' },
+      { key: '5', description: 'Toggle Changes Since Last Review' },
     ],
     [modKey],
   )
@@ -867,6 +872,7 @@ export default function DesignReviewsShow({
     },
     '3': { handler: () => (document.querySelector('[data-card-key="design-repo"]') as HTMLElement)?.click() },
     '4': { handler: () => (document.querySelector('[data-card-key="design-journal"]') as HTMLElement)?.click() },
+    '5': { handler: () => (document.querySelector('[data-card-key="design-repo-diff"]') as HTMLElement)?.click() },
   })
 
   return (
@@ -1110,6 +1116,16 @@ export default function DesignReviewsShow({
               >
                 <RepoTree data={repo_tree} repoLink={project.repo_link} bare />
               </CollapsibleCard>
+            )}
+
+            {/* Changes since the last DR/BR — re-ship review aid */}
+            {project.repo_link && (
+              <RepoDiffCard
+                data={repo_diff}
+                repoLink={project.repo_link}
+                storageKey="design-repo-diff"
+                trailing={<Kbd variant="muted">5</Kbd>}
+              />
             )}
 
             {/* Journal — all entries shown inline */}

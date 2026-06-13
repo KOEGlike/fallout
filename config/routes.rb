@@ -318,6 +318,9 @@ Rails.application.routes.draw do
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
+
+  # Dev-only UI sandbox for iterating on RepoDiffCard with mock data
+  get "dev/repo_diff_preview", to: "dev/repo_diff_preview#show" if Rails.env.development?
   constraints Constraints::StaffConstraint.new do
     namespace :admin do
       get "dashboard/requirements_design" => "dashboard#requirements_design", as: :requirements_design_dashboard

@@ -141,6 +141,14 @@ Created by `Ship#ensure_phase_two_review!` only after `phase_one_complete?` (bot
 
 Both share most schema: `feedback`, `internal_reason`, `hours_adjustment` (private add-on to public TA hours), `annotations` jsonb. The currency-adjustment column differs by type because the two reviews issue different currencies — **DR has `koi_adjustment`** (added to koi award), **BR has `gold_adjustment`** (added to gold award). See §10 for the full DR-koi / BR-gold / built-irl-conversion mechanics. Both reviews are gated to `pass2_reviewer` only.
 
+### "Changes Since Last Review" (re-ship diff)
+RC, DR, and BR show pages surface a `RepoDiffCard` (deferred `repo_diff` prop) summarizing what changed in the repo since the previous relevant review — file add/modify/remove/rename counts + commit count, rendered as a clickable tree linking to each file's GitHub diff. Built for re-ships.
+
+- **Anchor scope differs by review type**: RC diffs against the last completed **RC/DR/BR**; DR/BR diff against the last completed **DR/BR** (resolved by `Admin::Reviews::BaseController#last_completed_repo_review`, scoped to the project, excluding the current ship).
+- **SHA-anchored with date fallback**: RC/DR/BR carry a `reviewed_commit_sha` column, captured on terminal transition by `CaptureReviewCommitShaJob` (enqueued from `Reviewable#capture_reviewed_commit_sha`, gated by `respond_to?(:reviewed_commit_sha)` so TA — which has no column — is skipped). `ReviewRepoDiffService` compares that stored SHA against current HEAD; if the SHA is missing (older reviews) or force-pushed out of the repo (compare 404s), it falls back to the commit at the anchor review's `completed_at`. Result cached 6h, content-addressed on `base...head`.
+- **GitHub plumbing**: `GithubService.compare` (commit count + per-file status), `head_commit_sha`, `commit_sha_at` (date fallback), and `parse_repo` (shared owner/repo extraction, also used by `FetchRepoTreeJob`).
+- The `5` keyboard shortcut toggles the card on RC and DR show pages (BR intentionally has no shortcut).
+
 Admin-only swap (`Ship#swap_phase_two_type!`) moves a pending Phase 2 review between DR and BR. The swap maps DR's `koi_adjustment` ↔ BR's `gold_adjustment` (same semantic knob — a signed integer credit/debit on the hours-derived currency) and preserves the review's `created_at` so queue wait time stays intact.
 
 Time Audit now rejects link-only feedback in the admin controller (`Admin::Reviews::TimeAuditsController#update`). If `feedback` consists only of one or more `http(s)` URLs, the update is rejected with an inline validation error requiring written explanation.
