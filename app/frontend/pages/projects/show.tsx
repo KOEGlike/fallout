@@ -965,7 +965,7 @@ export default function ProjectsShow({
                           header={
                             <>
                               <InlineUser avatar={project.user_avatar} display_name={project.user_display_name} />{' '}
-                              transferred project from Blueprint
+                              transferred project from {entry.transfer_source}
                               {entry.blueprint_hours ? ` (${entry.blueprint_hours}h)` : ''}{' '}
                               <TimeAgo datetime={event.iso} />.
                             </>

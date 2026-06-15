@@ -234,7 +234,10 @@ function renderNavItem(item: NavItem, pathname: string, collapsed: boolean, admi
   const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
   const Icon = item.icon
   const Component = item.external ? 'a' : Link
-  const linkProps = item.external ? { href: item.href, target: '_self' as const } : { href: item.href }
+  // Hover-prefetch internal pages so the click swaps instantly even on slow connections.
+  const linkProps = item.external
+    ? { href: item.href, target: '_self' as const }
+    : { href: item.href, prefetch: true as const, cacheFor: '30s' }
   const stat = item.statKey && admin_stats ? admin_stats[item.statKey] : null
 
   return (

@@ -2,34 +2,16 @@ class Admin::UsersController < Admin::ApplicationController
   before_action :require_admin!, except: [ :index, :show ] # index/show open to all staff; policy_scope and authorize gate access
 
   def index
-    base_scope = policy_scope(User)
-    base_scope = base_scope.verified unless params[:include_trial] == "1"
-    base_scope = base_scope.kept unless params[:include_deleted] == "1"
-    search_scope = base_scope
-    if params[:query].present?
-      # Meilisearch returns a relevance-ordered list of IDs. Re-apply via a
-      # positional ORDER to preserve that order, otherwise typo-tolerant matches
-      # sink to the bottom and the visible result feels broken for short queries.
-      ranked_ids = User.ms_search(params[:query], limit: 200).map(&:id)
-      if ranked_ids.any?
-        order_sql = ActiveRecord::Base.send(:sanitize_sql_array, [ "array_position(ARRAY[?]::bigint[], users.id)", ranked_ids ])
-        search_scope = search_scope.where(id: ranked_ids).reorder(Arel.sql(order_sql))
-      else
-        search_scope = search_scope.none
-      end
-      @pagy, @users = pagy(search_scope)
-    else
-      @pagy, @users = pagy(search_scope.order(created_at: :desc))
-    end
-    @projects_counts = Project.where(user_id: @users.map(&:id)).group(:user_id).count
-
+    # policy_scope runs on the critical path so verify_policy_scoped passes on the initial
+    # (deferred) render; it's lazy, so no query fires until the deferred loader enumerates it.
+    scope = policy_scope(User)
+    # Filter chrome renders instantly; the heavy query + serialization is deferred so the
+    # page shell appears immediately and the table shows a skeleton until data lands.
     render inertia: {
-      users: @users.map { |u| serialize_user_row(u) },
-      pagy: pagy_props(@pagy),
       query: params[:query].to_s,
       include_trial: params[:include_trial] == "1",
       include_deleted: params[:include_deleted] == "1",
-      total_count: base_scope.count
+      **deferred_index_props(scope)
     }
   end
 
@@ -306,6 +288,42 @@ class Admin::UsersController < Admin::ApplicationController
     Date.parse(value.to_s)
   rescue ArgumentError
     nil
+  end
+
+  # Memoized loader shared by the deferred index props so the heavy query runs once per
+  # deferred request even though users/pagy/total_count are separate Inertia props.
+  def deferred_index_props(scope)
+    memo = nil
+    load = lambda do
+      memo ||= begin
+        base_scope = scope
+        base_scope = base_scope.verified unless params[:include_trial] == "1"
+        base_scope = base_scope.kept unless params[:include_deleted] == "1"
+        search_scope = base_scope
+        if params[:query].present?
+          # Meilisearch returns a relevance-ordered list of IDs. Re-apply via a
+          # positional ORDER to preserve that order, otherwise typo-tolerant matches
+          # sink to the bottom and the visible result feels broken for short queries.
+          ranked_ids = User.ms_search(params[:query], limit: 200).map(&:id)
+          if ranked_ids.any?
+            order_sql = ActiveRecord::Base.send(:sanitize_sql_array, [ "array_position(ARRAY[?]::bigint[], users.id)", ranked_ids ])
+            search_scope = search_scope.where(id: ranked_ids).reorder(Arel.sql(order_sql))
+          else
+            search_scope = search_scope.none
+          end
+          @pagy, @users = pagy(search_scope)
+        else
+          @pagy, @users = pagy(search_scope.order(created_at: :desc))
+        end
+        @projects_counts = Project.where(user_id: @users.map(&:id)).group(:user_id).count
+        { users: @users.map { |u| serialize_user_row(u) }, pagy: pagy_props(@pagy), total_count: base_scope.count }
+      end
+    end
+    {
+      users: InertiaRails.defer(group: "index") { load.call[:users] },
+      pagy: InertiaRails.defer(group: "index") { load.call[:pagy] },
+      total_count: InertiaRails.defer(group: "index") { load.call[:total_count] }
+    }
   end
 
   def serialize_user_row(user)

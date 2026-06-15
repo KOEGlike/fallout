@@ -2,14 +2,12 @@ class Admin::ShopOrdersController < Admin::ApplicationController
   before_action :require_admin! # Only admins manage orders, not reviewers
 
   def index
-    scope = policy_scope(ShopOrder).includes(:user, :shop_item)
-    scope = scope.where(state: params[:state]) if params[:state].present?
-    @pagy, @orders = pagy(scope.order(created_at: :desc))
-
+    # policy_scope runs on the critical path so verify_policy_scoped passes on the initial
+    # (deferred) render; it's lazy, so no query fires until the deferred loader enumerates it.
+    scope = policy_scope(ShopOrder)
     render inertia: "admin/shop_orders/index", props: {
-      orders: @orders.map { |o| serialize_order_row(o) },
-      pagy: pagy_props(@pagy),
-      state_filter: params[:state].to_s
+      state_filter: params[:state].to_s,
+      **deferred_index_props(scope)
     }
   end
 
@@ -37,6 +35,24 @@ class Admin::ShopOrdersController < Admin::ApplicationController
   end
 
   private
+
+  # Memoized loader shared by the deferred index props so the heavy query runs once per
+  # deferred request even though orders/pagy are separate Inertia props.
+  def deferred_index_props(scope)
+    memo = nil
+    load = lambda do
+      memo ||= begin
+        base_scope = scope.includes(:user, :shop_item)
+        base_scope = base_scope.where(state: params[:state]) if params[:state].present?
+        @pagy, @orders = pagy(base_scope.order(created_at: :desc))
+        { orders: @orders.map { |o| serialize_order_row(o) }, pagy: pagy_props(@pagy) }
+      end
+    end
+    {
+      orders: InertiaRails.defer(group: "index") { load.call[:orders] },
+      pagy: InertiaRails.defer(group: "index") { load.call[:pagy] }
+    }
+  end
 
   def revoke_streak_freeze(order, was_rejected_before)
     # If a streak freeze order is newly rejected, decrement the user's streak freezes to match the refund

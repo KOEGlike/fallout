@@ -162,6 +162,7 @@ export interface JournalEntryCard {
   can_switch_project: boolean
   can_delete: boolean
   is_blueprint_transfer: boolean
+  transfer_source: string | null
   blueprint_hours: number | null
 }
 
