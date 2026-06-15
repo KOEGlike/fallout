@@ -480,6 +480,7 @@ export interface ReviewJournalEntry {
   created_at_iso: string
   recordings: ReviewRecording[]
   total_duration: number
+  in_ship: boolean
 }
 
 export interface ReviewShipContext {
@@ -507,6 +508,7 @@ export interface RequirementsCheckProjectContext extends ReviewProjectContext {
   tags: string[]
   created_at: string
   logged_hours: number
+  ship_logged_hours: number
   approved_public_hours: number | null
   approved_internal_hours: number | null
   entry_count: number
@@ -644,6 +646,7 @@ export interface RequirementsCheckJournalEntry {
   total_duration: number
   approved_duration: number
   recordings: RecordingSummary[]
+  in_ship: boolean
 }
 
 export interface RequirementsCheckReviewDetail {

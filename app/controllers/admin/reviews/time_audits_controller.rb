@@ -27,8 +27,8 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
       review: serialize_review_detail(@review),
       ship: serialize_ship_context(ship),
       project: serialize_project_context(project),
-      new_entries: new_entries.map { |je| serialize_journal_entry(je) },
-      previous_entries: previous_entries.map { |je| serialize_journal_entry(je) },
+      new_entries: new_entries.map { |je| serialize_journal_entry(je, ship) },
+      previous_entries: previous_entries.map { |je| serialize_journal_entry(je, ship) },
       sibling_statuses: serialize_sibling_statuses(ship),
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),
@@ -187,7 +187,7 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
     }
   end
 
-  def serialize_journal_entry(journal_entry)
+  def serialize_journal_entry(journal_entry, ship)
     {
       id: journal_entry.id,
       content_html: helpers.render_user_markdown(journal_entry.content.to_s),
@@ -197,7 +197,8 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
       created_at: journal_entry.created_at.strftime("%b %d, %Y"),
       created_at_iso: journal_entry.created_at.iso8601,
       recordings: journal_entry.recordings.map { |r| serialize_recording(r) },
-      total_duration: journal_entry.recordings.sum { |r| recording_duration(r) }
+      total_duration: journal_entry.recordings.sum { |r| recording_duration(r) },
+      in_ship: journal_entry.ship_id == ship.id # Entry was claimed by the ship under review (vs an older ship)
     }
   end
 

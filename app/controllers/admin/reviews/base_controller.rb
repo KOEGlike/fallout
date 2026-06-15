@@ -262,6 +262,7 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
       user_slack_id: project.user.slack_id, # Admin-only context; review pages are staff-only
       collaborators: project.collaborator_users.map { |u| { id: u.id, display_name: u.display_name, avatar: u.avatar } },
       logged_hours: logged,
+      ship_logged_hours: ship.total_hours, # This cycle's logged hours only (logged_hours is project-wide)
       approved_public_hours: public_hrs,
       approved_internal_hours: internal_hrs,
       entry_count: entry_count,
@@ -292,7 +293,7 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
     }
   end
 
-  def serialize_journal_entry(journal_entry, time_audit)
+  def serialize_journal_entry(journal_entry, time_audit, ship)
     annotations = time_audit&.annotations || {}
     recording_annotations = annotations["recordings"] || {}
 
@@ -336,7 +337,8 @@ class Admin::Reviews::BaseController < Admin::ApplicationController
       created_at: journal_entry.created_at.strftime("%b %d, %Y"),
       total_duration: total_duration,
       approved_duration: approved_duration,
-      recordings: recordings_summary
+      recordings: recordings_summary,
+      in_ship: journal_entry.ship_id == ship.id # Entry was claimed by the ship under review (vs an older ship)
     }
   end
 

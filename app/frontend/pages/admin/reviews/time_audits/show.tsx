@@ -1472,7 +1472,6 @@ const EntrySection = memo(
   function EntrySection({
     entry,
     index,
-    isNew,
     isLast,
     annotations,
     savedRecordings,
@@ -1486,7 +1485,6 @@ const EntrySection = memo(
   }: {
     entry: ReviewJournalEntry
     index: number
-    isNew: boolean
     isLast: boolean
     annotations: TimeAuditAnnotations
     savedRecordings: Set<string>
@@ -1499,7 +1497,7 @@ const EntrySection = memo(
     savingRecording: number | null
   }) {
     const allSaved =
-      isNew &&
+      entry.in_ship &&
       entry.recordings.length > 0 &&
       entry.recordings.every((r) => {
         const recId = String(r.id)
@@ -1533,7 +1531,7 @@ const EntrySection = memo(
 
     const hasDeductions = entryApprovedSeconds !== entry.total_duration
 
-    const [expanded, setExpanded] = useState(isNew)
+    const [expanded, setExpanded] = useState(entry.in_ship)
 
     const prevAllSaved = useRef(false)
     useEffect(() => {
@@ -1571,16 +1569,18 @@ const EntrySection = memo(
           <span className="text-xs text-muted-foreground">
             · {entry.recordings.length} recording{entry.recordings.length !== 1 ? 's' : ''}
           </span>
-          {!isNew && (
-            <Badge variant="outline" className="text-xs">
-              <CheckIcon className="size-3 mr-0.5" />
-              Older Ship
-            </Badge>
-          )}
           {allSaved && (
             <Badge variant="default" className="text-xs">
               <CheckIcon className="size-3 mr-0.5" />
               Done
+            </Badge>
+          )}
+          {!entry.in_ship && (
+            <Badge
+              variant="outline"
+              className="text-xs bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800"
+            >
+              Not part of this ship
             </Badge>
           )}
         </button>
@@ -1643,7 +1643,6 @@ const EntrySection = memo(
   (prev, next) => {
     if (prev.entry !== next.entry) return false
     if (prev.index !== next.index) return false
-    if (prev.isNew !== next.isNew) return false
     if (prev.isLast !== next.isLast) return false
     if (prev.readOnly !== next.readOnly) return false
     if (prev.savingRecording !== next.savingRecording) return false
@@ -1688,13 +1687,7 @@ export default function TimeAuditsShow({
 }: PageProps) {
   const isTerminal = review.status !== 'pending'
 
-  const allEntries = useMemo(
-    () => [
-      ...new_entries.map((e) => ({ ...e, isNew: true })),
-      ...previous_entries.map((e) => ({ ...e, isNew: false })),
-    ],
-    [new_entries, previous_entries],
-  )
+  const allEntries = useMemo(() => [...new_entries, ...previous_entries], [new_entries, previous_entries])
 
   useReviewHeartbeat(heartbeat_path, !isTerminal)
 
@@ -2040,7 +2033,6 @@ export default function TimeAuditsShow({
             key={entry.id}
             entry={entry}
             index={i}
-            isNew={entry.isNew}
             isLast={i === allEntries.length - 1}
             annotations={annotations}
             savedRecordings={savedRecordings}

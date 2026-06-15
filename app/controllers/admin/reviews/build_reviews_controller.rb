@@ -42,8 +42,8 @@ class Admin::Reviews::BuildReviewsController < Admin::Reviews::BaseController
     render inertia: {
       review: serialize_review_detail(@review),
       project: serialize_project_context(project, ship),
-      new_entries: new_entries.map { |je| serialize_journal_entry(je, time_audit) },
-      previous_entries: previous_entries.map { |je| serialize_journal_entry(je, time_audit) },
+      new_entries: new_entries.map { |je| serialize_journal_entry(je, time_audit, ship) },
+      previous_entries: previous_entries.map { |je| serialize_journal_entry(je, time_audit, ship) },
       sibling_statuses: serialize_sibling_statuses(ship),
       previous_reviews: serialize_previous_reviews(project, ship, RequirementsCheckReview, DesignReview, BuildReview),
       repo_tree: ship.requirements_check_review&.repo_tree,

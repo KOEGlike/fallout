@@ -331,7 +331,7 @@ After a ship is `returned` or `rejected`, the user can submit a new one for the 
 - `previous_approved_ship` = the project's most-recent `approved` ship strictly before the current ship's `created_at`.
 - `new_journal_entries` = kept entries created after that cutoff (or all kept entries if no prior approved ship).
 - `previous_journal_entries` = kept entries created at-or-before the cutoff.
-- Reviewers see both `new_entries` and `previous_entries` in their UI (previous shown for context only).
+- Reviewers see both `new_entries` and `previous_entries` in their UI (previous shown for context only). Each serialized entry carries `in_ship` (`journal_entry.ship_id == ship.id`); all four queues (TA/RC/DR/BR) show a "Not part of this ship" pill when false. On TA, non-`in_ship` entries also default to collapsed and are excluded from the per-entry "Done"/all-saved auditing state. The project context exposes both `logged_hours` (project-wide total, used as the `userFacingHours` fallback feeding currency math) and `ship_logged_hours` (`ship.total_hours`, this cycle only, shown as the third figure in the hours display).
 
 ### TA Annotation Carry-forward
 
