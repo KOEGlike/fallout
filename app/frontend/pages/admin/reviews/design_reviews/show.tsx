@@ -965,6 +965,7 @@ export default function DesignReviewsShow({
                     <HoursDisplay
                       publicHours={project.approved_public_hours}
                       internalHours={project.approved_internal_hours}
+                      loggedHours={project.logged_hours}
                     />
                   </p>
                 </div>
