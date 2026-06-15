@@ -342,7 +342,7 @@ export default function ShopIndex({
               ? user_hours >= item.price
               : item.currency === 'gold'
                 ? gold_balance >= item.price
-                : koi_balance >= item.price
+                : koi_balance + gold_balance >= item.price
             const buyable = item.status === 'available' && canAfford
             const pinned = pinnedOrder.includes(item.id)
             const cardClass =
@@ -455,7 +455,7 @@ export default function ShopIndex({
                   </div>
                 ) : (
                   <div className="mt-auto w-full h-10 bg-brown border-2 border-dark-brown rounded-sm text-light-brown font-bold flex items-center justify-center cursor-not-allowed text-xl">
-                    Not enough {item.currency === 'gold' ? 'Gold' : 'Koi'}
+                    Not enough {item.currency === 'gold' ? 'Gold' : 'Koi/Gold'}
                   </div>
                 )}
               </li>

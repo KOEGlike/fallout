@@ -363,7 +363,7 @@ The dual-currency model maps directly onto Phase 2: **DR → koi**, **BR → gol
 
 Three currencies referenced in code:
 - **koi** — earned via DR (design ship approval) and streak goals. Spent on koi-currency shop items + project grants. Convertible to gold when a project becomes built-irl.
-- **gold** — earned via BR (build ship approval) and the built-irl conversion sweep. Also credited by admin adjustment. Spent on `currency = "gold"` shop items. Premium currency; *not* spendable on project grants.
+- **gold** — earned via BR (build ship approval) and the built-irl conversion sweep. Also credited by admin adjustment. Premium currency: gold can buy *anything* koi can (koi-currency shop items, project grants) plus `currency = "gold"` items; koi can only buy koi-currency items. Both shop orders and grants spend koi-first, gold-second (see split below).
 - **hours** — pseudo-currency on shop items. Cannot be purchased directly (`ShopOrder#user_can_afford` errors with "This item cannot be purchased directly"). Likely a placeholder for hours-redeemable rewards.
 
 ### Models
@@ -383,23 +383,23 @@ Three currencies referenced in code:
 def koi
   return 0 if trial?
   koi_transactions.sum(:amount) -
-    shop_orders.joins(:shop_item).where(shop_items: { currency: "koi" })
-               .where.not(state: :rejected).sum("frozen_price * quantity") -
+    shop_orders.where.not(state: :rejected).sum(:frozen_koi_amount) -
     project_grant_orders.kept.where.not(state: :rejected).sum(:frozen_koi_amount)
 end
 
 def gold
   return 0 if trial?
   gold_transactions.sum(:amount) -
-    shop_orders.joins(:shop_item).where(shop_items: { currency: "gold" })
-               .where.not(state: :rejected).sum("frozen_price * quantity") -
+    shop_orders.where.not(state: :rejected).sum(:frozen_gold_amount) -
     project_grant_orders.kept.where.not(state: :rejected).sum(:frozen_gold_amount)
 end
 ```
 
-**Koi balance** = sum of ledger amounts (including negative `built_irl_conversion` debits) MINUS reservations from non-rejected koi-currency shop orders MINUS reservations from non-rejected project grant orders.
+Both `ShopOrder` and `ProjectGrantOrder` now carry a `frozen_koi_amount` / `frozen_gold_amount` split (computed koi-first at create — see ShopOrder section below), so the balance queries just sum those columns; no join on `shop_items.currency` is needed.
 
-**Gold balance** is computed the same way as koi — sum of `GoldTransaction` amounts MINUS non-rejected gold-currency shop orders MINUS non-rejected project grant orders' `frozen_gold_amount`. Rejecting an order auto-refunds (it drops out of the sum); there is no counter to maintain.
+**Koi balance** = sum of ledger amounts (including negative `built_irl_conversion` debits) MINUS the `frozen_koi_amount` of non-rejected shop orders MINUS the `frozen_koi_amount` of non-rejected project grant orders.
+
+**Gold balance** is computed the same way against `frozen_gold_amount`. Rejecting an order auto-refunds (it drops out of the sum); there is no counter to maintain.
 
 **Trial users always have 0** — they cannot earn or spend.
 
@@ -532,7 +532,7 @@ If you change the rate (currently `7`) or the source-of-truth field (currently `
 - `Path` header: `current_user.koi` (from `path_controller.rb#index`).
 - `/shop` index: `koi_balance: current_user.koi` (from `shop_items_controller.rb`).
 - Project grants: `koi_balance: current_user.koi` on the new/index pages.
-- Shop order new: balance shown in the chosen currency (`gold` if item is gold-priced, else koi).
+- Shop order new: gold-priced items show the gold balance; koi-priced items show the koi-first spend breakdown (koi used + gold used) since they can be paid with both.
 - Admin pages: `/admin/koi_transactions` (per-user filterable history), `/admin/koi_transactions/new` (manual adjustment form). The same controller/pages serve gold via `?currency=gold` (`current_currency` swaps the model) — there is no separate gold transactions controller or page.
 - API: `/api/v1/users/me` includes `koi: user.koi`.
 
@@ -540,9 +540,10 @@ If you change the rate (currently `7`) or the source-of-truth field (currently `
 
 `ShopOrder` (`app/models/shop_order.rb`):
 - `frozen_price` snapshotted from `shop_item.price` on create (so price changes don't retroactively affect orders).
+- `frozen_koi_amount` / `frozen_gold_amount` snapshot the koi-first cost split (1 koi = 1 gold). `before_validation :split_cost` charges `total = frozen_price * quantity` against available koi first (`user.koi.clamp(0, total)`), the remainder in gold. **Koi-currency items accept gold** (gold is the premium currency — it can do anything koi can); **gold-currency items are gold-only** (`koi_part = 0`); hours items charge neither. Idempotent (skips when `frozen_koi_amount` is already set — 0 is truthy in Ruby).
 - `state` enum: `pending`, `fulfilled`, `rejected`, `on_hold`.
-- `before_validation :freeze_price, on: :create`.
-- `validate :user_can_afford, on: :create` — checks the right currency balance.
+- `before_validation :freeze_price, on: :create`, then `:split_cost`.
+- `validate :user_can_afford, on: :create` — for koi items checks `koi + gold >= total`; for gold items checks gold only. The split is computed and validated inside `ShopOrdersController#create`'s `current_user.with_lock` so concurrent orders can't double-spend.
 - Encrypts `phone` and `address` (PII of minors) at rest, non-deterministic.
 - `requires_shipping` items require `address` + `phone` validation.
 

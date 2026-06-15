@@ -520,10 +520,7 @@ class User < ApplicationRecord
 
     # Fire the three ledger sums in parallel — wall-time ≈ 1 round-trip instead of 3.
     earned = koi_transactions.async_sum(:amount)
-    spent_shop = shop_orders.joins(:shop_item)
-                            .where(shop_items: { currency: "koi" })
-                            .where.not(state: :rejected)
-                            .async_sum("frozen_price * quantity")
+    spent_shop = shop_orders.where.not(state: :rejected).async_sum(:frozen_koi_amount)
     spent_grants = project_grant_orders.kept.where.not(state: :rejected).async_sum(:frozen_koi_amount)
 
     earned.value - spent_shop.value - spent_grants.value
@@ -535,10 +532,7 @@ class User < ApplicationRecord
     # Recomputed live from the ledger, mirroring #koi — no denormalized counter.
     # Fire the three sums in parallel — wall-time ≈ 1 round-trip instead of 3.
     earned = gold_transactions.async_sum(:amount)
-    spent_shop = shop_orders.joins(:shop_item)
-                            .where(shop_items: { currency: "gold" })
-                            .where.not(state: :rejected)
-                            .async_sum("frozen_price * quantity")
+    spent_shop = shop_orders.where.not(state: :rejected).async_sum(:frozen_gold_amount)
     spent_grants = project_grant_orders.kept.where.not(state: :rejected).async_sum(:frozen_gold_amount)
 
     earned.value - spent_shop.value - spent_grants.value
