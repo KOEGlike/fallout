@@ -2,16 +2,14 @@ class Admin::KoiTransactionsController < Admin::ApplicationController
   before_action :require_admin! # Only admins can adjust koi/gold balances
 
   def index
-    model = transaction_model
-    scope = policy_scope(model).includes(:user, :actor)
-    scope = scope.where(user_id: params[:user_id]) if params[:user_id].present?
-    @pagy, @transactions = pagy(scope.order(created_at: :desc))
+    # policy_scope runs on the critical path so verify_policy_scoped passes on the initial
+    # (deferred) render; it's lazy, so no query fires until the deferred loader enumerates it.
+    scope = policy_scope(transaction_model)
 
     render inertia: "admin/koi_transactions/index", props: {
-      transactions: @transactions.map { |t| serialize_transaction(t) },
-      pagy: pagy_props(@pagy),
       user_id_filter: params[:user_id].to_s,
-      currency: current_currency
+      currency: current_currency,
+      **deferred_index_props(scope)
     }
   end
 
@@ -44,6 +42,24 @@ class Admin::KoiTransactionsController < Admin::ApplicationController
   end
 
   private
+
+  # Memoized loader shared by the deferred index props so the heavy query runs once per
+  # deferred request even though transactions/pagy are separate Inertia props.
+  def deferred_index_props(scope)
+    memo = nil
+    load = lambda do
+      memo ||= begin
+        base_scope = scope.includes(:user, :actor)
+        base_scope = base_scope.where(user_id: params[:user_id]) if params[:user_id].present?
+        @pagy, @transactions = pagy(base_scope.order(created_at: :desc))
+        { transactions: @transactions.map { |t| serialize_transaction(t) }, pagy: pagy_props(@pagy) }
+      end
+    end
+    {
+      transactions: InertiaRails.defer(group: "index") { load.call[:transactions] },
+      pagy: InertiaRails.defer(group: "index") { load.call[:pagy] }
+    }
+  end
 
   def current_currency
     params[:currency] == "gold" ? "gold" : "koi"

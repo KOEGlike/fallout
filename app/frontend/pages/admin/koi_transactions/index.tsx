@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { Link, router } from '@inertiajs/react'
+import { Link, router, Deferred } from '@inertiajs/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import AdminLayout from '@/layouts/AdminLayout'
 import { Badge } from '@/components/admin/ui/badge'
 import { Button } from '@/components/admin/ui/button'
 import { DataTable } from '@/components/admin/DataTable'
+import { DataTableSkeleton } from '@/components/admin/DataTableSkeleton'
 import type { PagyProps } from '@/types'
 
 type Transaction = {
@@ -48,9 +49,9 @@ export default function AdminKoiTransactionsIndex({
   pagy,
   currency,
 }: {
-  transactions: Transaction[]
+  transactions?: Transaction[]
   user_id_filter: string
-  pagy: PagyProps
+  pagy?: PagyProps
   currency: 'koi' | 'gold'
 }) {
   function switchCurrency(c: 'koi' | 'gold') {
@@ -91,7 +92,9 @@ export default function AdminKoiTransactionsIndex({
         </Button>
       </div>
 
-      <DataTable columns={columns} data={transactions} pagy={pagy} noun="transactions" />
+      <Deferred data={['transactions', 'pagy']} fallback={<DataTableSkeleton columns={columns.length} />}>
+        <DataTable columns={columns} data={transactions ?? []} pagy={pagy} noun="transactions" />
+      </Deferred>
     </div>
   )
 }
