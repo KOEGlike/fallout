@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_15_171716) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_16_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -160,6 +160,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_171716) do
     t.index ["user_id"], name: "index_collaborators_on_user_id"
   end
 
+  create_table "collapse_timelapses", force: :cascade do |t|
+    t.string "collapse_session_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_refreshed_at"
+    t.string "name"
+    t.integer "screenshot_count"
+    t.text "session_token", null: false
+    t.string "status"
+    t.string "thumbnail_url"
+    t.integer "tracked_seconds"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.string "video_url"
+    t.index ["collapse_session_id"], name: "index_collapse_timelapses_on_collapse_session_id", unique: true
+    t.index ["user_id"], name: "index_collapse_timelapses_on_user_id"
+  end
+
   create_table "critters", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "journal_entry_id", null: false
@@ -249,6 +266,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_171716) do
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.index ["actor_id"], name: "index_gold_transactions_on_actor_id"
+    t.index ["created_at"], name: "index_gold_transactions_on_created_at"
     t.index ["ship_id", "user_id"], name: "index_gold_transactions_on_built_irl_conversion_uniqueness", unique: true, where: "(((reason)::text = 'built_irl_conversion'::text) AND (ship_id IS NOT NULL))"
     t.index ["ship_id", "user_id"], name: "index_gold_transactions_on_ship_review_uniqueness", unique: true, where: "(((reason)::text = 'ship_review'::text) AND (ship_id IS NOT NULL))"
     t.index ["ship_id"], name: "index_gold_transactions_on_ship_id"
@@ -381,6 +399,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_171716) do
     t.uuid "transfer_id"
     t.bigint "user_id", null: false
     t.index ["actor_id"], name: "index_koi_transactions_on_actor_id"
+    t.index ["created_at"], name: "index_koi_transactions_on_created_at"
     t.index ["ship_id", "user_id"], name: "index_koi_transactions_on_built_irl_conversion_uniqueness", unique: true, where: "(((reason)::text = 'built_irl_conversion'::text) AND (ship_id IS NOT NULL))"
     t.index ["ship_id", "user_id"], name: "index_koi_transactions_on_ship_review_uniqueness", unique: true, where: "(((reason)::text = 'ship_review'::text) AND (ship_id IS NOT NULL))"
     t.index ["transfer_id"], name: "index_koi_transactions_on_transfer_id", where: "(transfer_id IS NOT NULL)"
@@ -1072,11 +1091,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_15_171716) do
   add_foreign_key "collaboration_invites", "users", column: "invitee_id"
   add_foreign_key "collaboration_invites", "users", column: "inviter_id"
   add_foreign_key "collaborators", "users"
+  add_foreign_key "collapse_timelapses", "users"
   add_foreign_key "critters", "journal_entries"
   add_foreign_key "critters", "users"
   add_foreign_key "design_reviews", "ships"
   add_foreign_key "design_reviews", "users", column: "reviewer_id"
-  add_foreign_key "dialog_campaigns", "users"
+  add_foreign_key "dialog_campaigns", "users", name: "dialog_campaigns_user_id_fkey"
   add_foreign_key "featured_projects", "projects"
   add_foreign_key "featured_projects", "users", column: "featured_by_user_id"
   add_foreign_key "gold_transactions", "ships"

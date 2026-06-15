@@ -533,7 +533,7 @@ If you change the rate (currently `7`) or the source-of-truth field (currently `
 - `/shop` index: `koi_balance: current_user.koi` (from `shop_items_controller.rb`).
 - Project grants: `koi_balance: current_user.koi` on the new/index pages.
 - Shop order new: gold-priced items show the gold balance; koi-priced items show the koi-first spend breakdown (koi used + gold used) since they can be paid with both.
-- Admin pages: `/admin/koi_transactions` (per-user filterable history), `/admin/koi_transactions/new` (manual adjustment form). The same controller/pages serve gold via `?currency=gold` (`current_currency` swaps the model) — there is no separate gold transactions controller or page.
+- Admin pages: `/admin/koi_transactions` (paginated ledger with server-side free-text search by user name/email/description, a direct **user filter** + `reason` filter, and a stats bar — count/added/removed/net — computed from `apply_filters` in the deferred loader; `count` is the true total, but the koi/gold sums exclude amounts received by admins (`users.roles @> ARRAY['admin']`) so the economy figures reflect real users, not self-grants/testing), `/admin/koi_transactions/new` (manual adjustment form with a live balance preview). Both the ledger user filter and the form's user picker use the shared `UserSearchCombobox` (`components/admin/UserSearchCombobox.tsx`) backed by the `users_search` JSON action — mirrors `featured_projects#projects_search`. `users_search` returns **verified users only** (`User.verified` → `type IS NULL`, so trial users are hidden) and accepts a raw numeric user id (pasting an id surfaces that exact user). The same controller/pages serve gold via `?currency=gold` (`current_currency` swaps the model) — there is no separate gold transactions controller or page. The shared `CurrencyToggle` (`components/admin/CurrencyToggle.tsx`) is the koi/gold switch on both pages. A plain `created_at` btree index on both tables backs the unfiltered `ORDER BY created_at DESC` listing.
 - API: `/api/v1/users/me` includes `koi: user.koi`.
 
 ### Spending: Shop Orders
@@ -595,7 +595,7 @@ Both `User#koi` and `User#gold` short-circuit to `0` for trial users. `ShopOrder
 | `pages/admin/reviews/requirements_checks/{index,show}.tsx` | RC queue + repo tree viewer (refresh via `refresh_tree`) |
 | `pages/admin/reviews/design_reviews/show.tsx` | DR queue (Phase 2 design ships) |
 | `pages/admin/reviews/build_reviews/show.tsx` | BR queue (Phase 2 build ships). Shows "Approval will convert N koi → N gold" preview below the Modify Gold field when this would be the project's first approved BR and the owner has koi to convert. |
-| `pages/admin/koi_transactions/{index,new}.tsx` | Admin koi **and gold** ledger + manual adjustment form — the `currency` prop (`?currency=gold`) switches the page between the two. No separate gold pages exist. |
+| `pages/admin/koi_transactions/{index,new}.tsx` | Admin koi **and gold** ledger (search + reason filter + stats bar) + manual adjustment form (user-search combobox + balance preview) — the `currency` prop (`?currency=gold`) switches the page between the two. No separate gold pages exist. Shared `components/admin/CurrencyToggle.tsx` is the koi/gold switch. |
 
 Each show page polls heartbeat and listens for 409 to surface "claim lost" UX.
 

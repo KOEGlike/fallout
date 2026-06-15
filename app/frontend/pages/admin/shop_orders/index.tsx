@@ -100,7 +100,16 @@ export default function AdminShopOrdersIndex({
         ))}
       </div>
 
-      <Deferred data={['orders', 'pagy']} fallback={<DataTableSkeleton columns={columns.length} />}>
+      <Deferred
+        data={['orders', 'pagy']}
+        fallback={
+          <DataTableSkeleton
+            columns={columns.length}
+            headers={['User', 'Item', 'Price', 'State', 'Date', '']}
+            firstColumnVariant="twoLine"
+          />
+        }
+      >
         <DataTable columns={columns} data={orders ?? []} pagy={pagy} noun="orders" />
       </Deferred>
     </div>

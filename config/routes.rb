@@ -446,7 +446,9 @@ Rails.application.routes.draw do
           patch :bulk_reject
         end
       end
-      resources :koi_transactions, only: [ :index, :new, :create ] # Admin koi adjustments
+      resources :koi_transactions, only: [ :index, :new, :create ] do # Admin koi adjustments
+        get :users_search, on: :collection # Autocomplete for the adjustment user picker
+      end
       resources :you_tube_videos, only: [] do
         member do
           post :refetch # Re-fetch YouTube metadata for videos with missing duration
