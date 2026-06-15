@@ -76,9 +76,11 @@ const CARD_META: Record<ReviewStatKey, { label: string; description: string }> =
 // Once loaded, an individual null value renders "—".
 function renderCard(key: ReviewStatKey, stats?: ReviewStats, slaDays?: number) {
   if (stats === undefined) {
+    // inline-block so the value wrapper's text-2xl line-height (32px) governs the row height —
+    // a block skeleton's margins would collapse through the padding-less wrapper and under-size it.
     return (
       <StatCard key={key} {...CARD_META[key]}>
-        <Skeleton className="my-0.5 h-7 w-24" />
+        <Skeleton className="inline-block h-5 w-24 align-middle" />
       </StatCard>
     )
   }
