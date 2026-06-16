@@ -33,6 +33,8 @@ Internal checks are skipped (marked `skipped`) if any user check fails — saves
 
 Pipelined parallel execution: `MAX_THREADS = 4`, dependency-resolved fetcher order (`repo_meta → repo_tree → readme_content → bom_content → image_descriptions`). Modules launch as soon as their declared `deps` are resolved.
 
+`image_descriptions` (the last, critical-path fetcher) runs the vision LLM. `ReadmeImageDescriptions.download_images` hard-caps each README image at 5MB (larger ones skipped) and downscales+re-encodes survivors to ≤1024px JPEG via libvips before the single multi-image LLM call — the originals are often multi-MB renders and the call runs at `detail: "low"`, so full-res adds only payload/latency. Image downloads carry explicit open/read timeouts so a stuck origin can't hang the fetcher (and thus the whole `ShipPreflightJob`, which only persists on completion).
+
 Results cached by `(repo full_name, HEAD commit SHA, MD5(description|repo_link|entry_count|time_logged|tags))` for 12h to avoid repeated GitHub/LLM calls when scanning unchanged state. Any push busts the cache via the SHA; `cache_key` returns nil (cache skipped) when the SHA can't be resolved so stale results aren't served across pushes. Use `force: true` to bypass.
 
 `CheckResult` is a `Data.define(...)` with `passed?/failed?/blocking?/user?/internal?`. Only **user-visible** failures block submission; warnings are non-blocking.
