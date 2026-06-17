@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_13_203827) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_16_193000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -249,6 +249,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_203827) do
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.index ["actor_id"], name: "index_gold_transactions_on_actor_id"
+    t.index ["created_at"], name: "index_gold_transactions_on_created_at"
     t.index ["ship_id", "user_id"], name: "index_gold_transactions_on_built_irl_conversion_uniqueness", unique: true, where: "(((reason)::text = 'built_irl_conversion'::text) AND (ship_id IS NOT NULL))"
     t.index ["ship_id", "user_id"], name: "index_gold_transactions_on_ship_review_uniqueness", unique: true, where: "(((reason)::text = 'ship_review'::text) AND (ship_id IS NOT NULL))"
     t.index ["ship_id"], name: "index_gold_transactions_on_ship_id"
@@ -381,6 +382,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_203827) do
     t.uuid "transfer_id"
     t.bigint "user_id", null: false
     t.index ["actor_id"], name: "index_koi_transactions_on_actor_id"
+    t.index ["created_at"], name: "index_koi_transactions_on_created_at"
     t.index ["ship_id", "user_id"], name: "index_koi_transactions_on_built_irl_conversion_uniqueness", unique: true, where: "(((reason)::text = 'built_irl_conversion'::text) AND (ship_id IS NOT NULL))"
     t.index ["ship_id", "user_id"], name: "index_koi_transactions_on_ship_review_uniqueness", unique: true, where: "(((reason)::text = 'ship_review'::text) AND (ship_id IS NOT NULL))"
     t.index ["transfer_id"], name: "index_koi_transactions_on_transfer_id", where: "(transfer_id IS NOT NULL)"
@@ -558,7 +560,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_203827) do
     t.index ["discarded_at"], name: "index_project_grant_orders_on_discarded_at"
     t.index ["state"], name: "index_project_grant_orders_on_state"
     t.index ["user_id"], name: "index_project_grant_orders_on_user_id"
-    t.check_constraint "frozen_koi_amount > 0", name: "project_grant_orders_frozen_koi_amount_positive"
+    t.check_constraint "frozen_koi_amount >= 0", name: "project_grant_orders_frozen_koi_amount_positive"
     t.check_constraint "frozen_usd_cents > 0", name: "project_grant_orders_frozen_usd_cents_positive"
   end
 
@@ -669,12 +671,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_203827) do
     t.index ["user_id"], name: "index_reviewer_notes_on_user_id"
   end
 
-  create_table "reviewer_settings", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.decimal "ta_hours_per_review_equivalent"
-    t.datetime "updated_at", null: false
-  end
-
   create_table "reviewer_unavailabilities", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.date "ends_on", null: false
@@ -741,6 +737,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_203827) do
     t.text "address"
     t.text "admin_note"
     t.datetime "created_at", null: false
+    t.integer "frozen_gold_amount", default: 0, null: false
+    t.integer "frozen_koi_amount", null: false
     t.integer "frozen_price", null: false
     t.text "phone"
     t.integer "quantity", default: 1, null: false

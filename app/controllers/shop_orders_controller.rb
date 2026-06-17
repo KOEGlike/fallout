@@ -51,9 +51,11 @@ class ShopOrdersController < ApplicationController
     @shop_order = @shop_item.shop_orders.build(user: current_user)
     authorize @shop_order
 
-    balance = @shop_item.currency == "gold" ? current_user.gold : current_user.koi
-    if balance < @shop_item.price
-      return redirect_to "/shop", inertia: { errors: { base: [ "You don't have enough #{@shop_item.currency} to buy this item" ] } }
+    # Koi items can be paid with koi and/or gold (1 koi = 1 gold); gold items are gold-only.
+    affordable = @shop_item.currency == "gold" ? current_user.gold >= @shop_item.price : (current_user.koi + current_user.gold) >= @shop_item.price
+    unless affordable
+      needed = @shop_item.currency == "gold" ? "gold" : "koi or gold"
+      return redirect_to "/shop", inertia: { errors: { base: [ "You don't have enough #{needed} to buy this item" ] } }
     end
 
     render inertia: "shop_orders/new", props: {
@@ -105,22 +107,15 @@ class ShopOrdersController < ApplicationController
         next false
       end
 
-      total_cost = @shop_item.price * quantity
-      balance = @shop_item.currency == "gold" ? current_user.gold : current_user.koi
-      currency_name = @shop_item.currency == "gold" ? "gold" : "koi"
-
-      if balance < total_cost
-        @shop_order.errors.add(:base, "You don't have enough #{currency_name} for this purchase")
-        false
+      @shop_order.frozen_price = @shop_item.price # Freeze the price read inside the lock
+      @shop_order.quantity = quantity
+      # split_cost computes the koi-first split and user_can_afford validates affordability,
+      # both reading the live balance inside the lock so concurrent orders can't double-spend.
+      if @shop_order.save
+        current_user.increment!(:streak_freezes, quantity) if @shop_item.grants_streak_freeze?
+        true
       else
-        @shop_order.frozen_price = @shop_item.price # Freeze the price read inside the lock
-        @shop_order.quantity = quantity
-        if @shop_order.save
-          current_user.increment!(:streak_freezes, quantity) if @shop_item.grants_streak_freeze?
-          true
-        else
-          false
-        end
+        false
       end
     end
 

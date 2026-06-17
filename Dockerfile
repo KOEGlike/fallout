@@ -18,12 +18,12 @@ WORKDIR /rails
 # block unreviewed upgrades; update deliberately when Debian rolls a point release.
 ARG CURL_VERSION=7.88.1-10+deb12u14
 ARG LIBJEMALLOC2_VERSION=5.3.0-1
-ARG LIBVIPS42_VERSION=8.14.1-3+deb12u2
+ARG LIBVIPS42_VERSION=8.14.1-3+deb12u3
 # Enables PDF rendering through libvips (built with --enable-poppler upstream;
 # the lib is dlopened at runtime so we install it explicitly). Used by
 # ShipChecks::UnifiedScreenshotProcessor when the YSWS Unified upload's source
 # file is a PDF (common for hackathon zines).
-ARG LIBPOPPLER_GLIB8_VERSION=22.12.0-2+deb12u1
+ARG LIBPOPPLER_GLIB8_VERSION=22.12.0-2+deb12u2
 ARG SQLITE3_VERSION=3.40.1-2+deb12u2
 
 RUN apt-get update -qq && \

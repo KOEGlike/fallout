@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { Link, router } from '@inertiajs/react'
+import { Link, router, Deferred } from '@inertiajs/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import AdminLayout from '@/layouts/AdminLayout'
 import { Badge } from '@/components/admin/ui/badge'
 import { Button } from '@/components/admin/ui/button'
 import { DataTable } from '@/components/admin/DataTable'
+import { DataTableSkeleton } from '@/components/admin/DataTableSkeleton'
 import type { PagyProps } from '@/types'
 
 type Order = {
@@ -55,7 +56,12 @@ const columns: ColumnDef<Order>[] = [
   {
     id: 'actions',
     cell: ({ row }) => (
-      <Link href={`/admin/shop_orders/${row.original.id}`} className="text-primary hover:underline text-sm">
+      <Link
+        href={`/admin/shop_orders/${row.original.id}`}
+        prefetch
+        cacheFor="30s"
+        className="text-primary hover:underline text-sm"
+      >
         Manage
       </Link>
     ),
@@ -69,9 +75,9 @@ export default function AdminShopOrdersIndex({
   state_filter,
   pagy,
 }: {
-  orders: Order[]
+  orders?: Order[]
   state_filter: string
-  pagy: PagyProps
+  pagy?: PagyProps
 }) {
   function filterByState(state: string) {
     router.get('/admin/shop_orders', state ? { state } : {}, { preserveState: true })
@@ -94,7 +100,18 @@ export default function AdminShopOrdersIndex({
         ))}
       </div>
 
-      <DataTable columns={columns} data={orders} pagy={pagy} noun="orders" />
+      <Deferred
+        data={['orders', 'pagy']}
+        fallback={
+          <DataTableSkeleton
+            columns={columns.length}
+            headers={['User', 'Item', 'Price', 'State', 'Date', '']}
+            firstColumnVariant="twoLine"
+          />
+        }
+      >
+        <DataTable columns={columns} data={orders ?? []} pagy={pagy} noun="orders" />
+      </Deferred>
     </div>
   )
 }

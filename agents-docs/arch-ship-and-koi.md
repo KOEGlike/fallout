@@ -33,6 +33,8 @@ Internal checks are skipped (marked `skipped`) if any user check fails — saves
 
 Pipelined parallel execution: `MAX_THREADS = 4`, dependency-resolved fetcher order (`repo_meta → repo_tree → readme_content → bom_content → image_descriptions`). Modules launch as soon as their declared `deps` are resolved.
 
+`image_descriptions` (the last, critical-path fetcher) runs the vision LLM. `ReadmeImageDescriptions.download_images` hard-caps each README image at 5MB (larger ones skipped) and downscales+re-encodes survivors to ≤1024px JPEG via libvips before the single multi-image LLM call — the originals are often multi-MB renders and the call runs at `detail: "low"`, so full-res adds only payload/latency. Image downloads carry explicit open/read timeouts so a stuck origin can't hang the fetcher (and thus the whole `ShipPreflightJob`, which only persists on completion).
+
 Results cached by `(repo full_name, HEAD commit SHA, MD5(description|repo_link|entry_count|time_logged|tags))` for 12h to avoid repeated GitHub/LLM calls when scanning unchanged state. Any push busts the cache via the SHA; `cache_key` returns nil (cache skipped) when the SHA can't be resolved so stale results aren't served across pushes. Use `force: true` to bypass.
 
 `CheckResult` is a `Data.define(...)` with `passed?/failed?/blocking?/user?/internal?`. Only **user-visible** failures block submission; warnings are non-blocking.
@@ -145,7 +147,7 @@ Both share most schema: `feedback`, `internal_reason`, `hours_adjustment` (priva
 RC, DR, and BR show pages surface a `RepoDiffCard` (`repo_diff` jsonb column) summarizing what changed in the repo since the previous relevant review — file add/modify/remove/rename counts + commit count, rendered as a clickable tree linking to each file's GitHub diff. Built for re-ships.
 
 - **Computed once on creation, like `repo_tree`**: `Reviewable` runs `after_create_commit :compute_repo_diff` → `ComputeReviewRepoDiffJob` (gated by `respond_to?(:repo_diff)` so TA is skipped), which calls `ReviewRepoDiffService.for_review` and stores the summary in the review's `repo_diff` column. The controllers read `@review.repo_diff` directly (not deferred). The diff therefore reflects the repo near submission and can lag slightly behind later pushes — an accepted trade-off matching `repo_tree`.
-- **Anchor scope differs by review type**: RC diffs against the last completed **RC/DR/BR**; DR/BR diff against the last completed **DR/BR** — declared per class via `repo_diff_anchor_classes` and resolved by `ReviewRepoDiffService.anchor_review_for` (most recent terminal review of those classes for the project, excluding the current ship).
+- **Anchor = the last time the project was sent back**: the most recent **returned or rejected** review (not approved) among this review type's anchor classes — RC diffs against RC/DR/BR, DR/BR against DR/BR — declared per class via `repo_diff_anchor_classes` and resolved by `ReviewRepoDiffService.anchor_review_for` (excluding the current ship). Approvals after that return don't reset the baseline, so the diff always shows what changed since the student was last asked to fix something. A project never returned/rejected is a fresh cycle, not a re-ship, so there's no anchor → the card stays hidden.
 - **SHA-anchored with date fallback**: RC/DR/BR carry a `reviewed_commit_sha` column, captured on terminal transition by `CaptureReviewCommitShaJob` (enqueued from `Reviewable#capture_reviewed_commit_sha`). The service compares the anchor's stored SHA against current HEAD; if the SHA is missing (older reviews) or force-pushed out of the repo (compare 404s), it falls back to the commit at the anchor review's `completed_at`.
 - **GitHub plumbing**: `GithubService.compare` (commit count + per-file status), `head_commit_sha`, `commit_sha_at` (date fallback), and `parse_repo` (shared owner/repo extraction, also used by `FetchRepoTreeJob`).
 - The `5` keyboard shortcut toggles the card on RC and DR show pages (BR intentionally has no shortcut).
@@ -212,7 +214,7 @@ Each review controller's `#index` returns:
 - `pending_reviews`: `policy_scope.pending.where.not(ship_id: flagged_ship_ids).order(:created_at)`, then re-sorted in Ruby via `sort_pending` (`:hours` → owner lifetime hours desc; otherwise real wait with the +2d priority boost). The working queue.
 - `all_reviews`: paginated by `created_at desc` for full history. Flagged projects shown but visually marked.
 
-**Priority rows (`ReviewPriorityCalculator`)**: a pending ship is flagged `priority: true` when ANY one collaborator (owner or kept collaborator), evaluated independently, either (a) already has ≥50h of proportional approved public hours, or (b) would cross 60h once this ship's hours land — (b) only applies once the Time Audit has approved (so the ship's eventual hours are known). Approved hours use the live per-user proportional total (`HoursStatsCalculator.public_approved_seconds_by_user`, bounded to the members' attributable approved projects). Priority rows render with a green background (precedence: green > blue `previously_reviewed_by_me` > yellow `sibling_approved`) and receive the +2d ordering boost in both the index and `next_eligible`. Computed in bulk for the whole page — no per-row queries.
+**Priority rows (`ReviewPriorityCalculator`)**: a pending ship is flagged `priority: true` when ANY one collaborator (owner or kept collaborator), evaluated independently, is **not yet qualified** (< 60h approved) AND either (a) already has ≥50h of proportional approved public hours, or (b) would cross 60h once this ship's hours land — (b) only applies once the Time Audit has approved (so the ship's eventual hours are known). Collaborators already at ≥60h are excluded — they've qualified and don't need a priority review. Approved hours use the live per-user proportional total (`HoursStatsCalculator.public_approved_seconds_by_user`, bounded to the members' attributable approved projects). Priority rows render with a green background (precedence: green > blue `previously_reviewed_by_me` > yellow `sibling_approved`) and receive the +2d ordering boost in both the index and `next_eligible`. Computed in bulk for the whole page — no per-row queries.
 
 `flagged_ship_ids = Ship.where(project_id: ProjectFlag.select(:project_id)).select(:id)` — flagged projects are hidden from the queue but visible in the all-table.
 
@@ -329,9 +331,10 @@ After a ship is `returned` or `rejected`, the user can submit a new one for the 
 ### `previous_approved_ship` and Cycle Boundaries
 
 - `previous_approved_ship` = the project's most-recent `approved` ship strictly before the current ship's `created_at`.
-- `new_journal_entries` = kept entries created after that cutoff (or all kept entries if no prior approved ship).
+- `new_journal_entries` = kept entries created after that cutoff, **excluding entries locked to a different approved ship** (`ship_id IS NULL OR ship_id NOT IN other_approved_ids`). This mirrors the `claim_journal_entries!` filter — the compute path (`compute_approved_public_seconds`, koi `member_weights`, the review queues) previously lacked it, so a later ship re-counted hours an earlier ship's TA had reviewed during its review lag (cross-ship double-counting). Returned/rejected ships' entries stay visible so a re-ship reclaims them.
+- `lock_reviewed_journal_entries!` runs on the `:approved` transition (in `recompute_status!`): it stamps `ship_id` on the still-unclaimed review-lag entries the TA reviewed, finalizing this cycle's set so later ships exclude it. Safe at approval time because no later ship exists yet. (Backfill for pre-existing ships: `rake ships:fix_hour_overlap`, bounded by `ta.completed_at`; `rake ships:hour_overlap_report` audits impact — read-only.)
 - `previous_journal_entries` = kept entries created at-or-before the cutoff.
-- Reviewers see both `new_entries` and `previous_entries` in their UI (previous shown for context only).
+- Reviewers see both `new_entries` and `previous_entries` in their UI (previous shown for context only). Each serialized entry carries `in_ship` (`journal_entry.ship_id == ship.id`); all four queues (TA/RC/DR/BR) show a "Not part of this ship" pill when false. On TA, non-`in_ship` entries also default to collapsed and are excluded from the per-entry "Done"/all-saved auditing state. The project context exposes both `logged_hours` (project-wide total, used as the `userFacingHours` fallback feeding currency math) and `ship_logged_hours` (`ship.total_hours`, this cycle only, shown as the third figure in the hours display).
 
 ### TA Annotation Carry-forward
 
@@ -362,7 +365,7 @@ The dual-currency model maps directly onto Phase 2: **DR → koi**, **BR → gol
 
 Three currencies referenced in code:
 - **koi** — earned via DR (design ship approval) and streak goals. Spent on koi-currency shop items + project grants. Convertible to gold when a project becomes built-irl.
-- **gold** — earned via BR (build ship approval) and the built-irl conversion sweep. Also credited by admin adjustment. Spent on `currency = "gold"` shop items. Premium currency; *not* spendable on project grants.
+- **gold** — earned via BR (build ship approval) and the built-irl conversion sweep. Also credited by admin adjustment. Premium currency: gold can buy *anything* koi can (koi-currency shop items, project grants) plus `currency = "gold"` items; koi can only buy koi-currency items. Both shop orders and grants spend koi-first, gold-second (see split below).
 - **hours** — pseudo-currency on shop items. Cannot be purchased directly (`ShopOrder#user_can_afford` errors with "This item cannot be purchased directly"). Likely a placeholder for hours-redeemable rewards.
 
 ### Models
@@ -382,23 +385,23 @@ Three currencies referenced in code:
 def koi
   return 0 if trial?
   koi_transactions.sum(:amount) -
-    shop_orders.joins(:shop_item).where(shop_items: { currency: "koi" })
-               .where.not(state: :rejected).sum("frozen_price * quantity") -
+    shop_orders.where.not(state: :rejected).sum(:frozen_koi_amount) -
     project_grant_orders.kept.where.not(state: :rejected).sum(:frozen_koi_amount)
 end
 
 def gold
   return 0 if trial?
   gold_transactions.sum(:amount) -
-    shop_orders.joins(:shop_item).where(shop_items: { currency: "gold" })
-               .where.not(state: :rejected).sum("frozen_price * quantity") -
+    shop_orders.where.not(state: :rejected).sum(:frozen_gold_amount) -
     project_grant_orders.kept.where.not(state: :rejected).sum(:frozen_gold_amount)
 end
 ```
 
-**Koi balance** = sum of ledger amounts (including negative `built_irl_conversion` debits) MINUS reservations from non-rejected koi-currency shop orders MINUS reservations from non-rejected project grant orders.
+Both `ShopOrder` and `ProjectGrantOrder` now carry a `frozen_koi_amount` / `frozen_gold_amount` split (computed koi-first at create — see ShopOrder section below), so the balance queries just sum those columns; no join on `shop_items.currency` is needed.
 
-**Gold balance** is computed the same way as koi — sum of `GoldTransaction` amounts MINUS non-rejected gold-currency shop orders MINUS non-rejected project grant orders' `frozen_gold_amount`. Rejecting an order auto-refunds (it drops out of the sum); there is no counter to maintain.
+**Koi balance** = sum of ledger amounts (including negative `built_irl_conversion` debits) MINUS the `frozen_koi_amount` of non-rejected shop orders MINUS the `frozen_koi_amount` of non-rejected project grant orders.
+
+**Gold balance** is computed the same way against `frozen_gold_amount`. Rejecting an order auto-refunds (it drops out of the sum); there is no counter to maintain.
 
 **Trial users always have 0** — they cannot earn or spend.
 
@@ -531,17 +534,18 @@ If you change the rate (currently `7`) or the source-of-truth field (currently `
 - `Path` header: `current_user.koi` (from `path_controller.rb#index`).
 - `/shop` index: `koi_balance: current_user.koi` (from `shop_items_controller.rb`).
 - Project grants: `koi_balance: current_user.koi` on the new/index pages.
-- Shop order new: balance shown in the chosen currency (`gold` if item is gold-priced, else koi).
-- Admin pages: `/admin/koi_transactions` (per-user filterable history), `/admin/koi_transactions/new` (manual adjustment form). The same controller/pages serve gold via `?currency=gold` (`current_currency` swaps the model) — there is no separate gold transactions controller or page.
+- Shop order new: gold-priced items show the gold balance; koi-priced items show the koi-first spend breakdown (koi used + gold used) since they can be paid with both.
+- Admin pages: `/admin/koi_transactions` (paginated ledger with server-side free-text search by user name/email/description, a direct **user filter** + `reason` filter, and a stats bar — count/added/removed/net — computed from `apply_filters` in the deferred loader; `count` is the true total, but the koi/gold sums exclude amounts received by admins (`users.roles @> ARRAY['admin']`) so the economy figures reflect real users, not self-grants/testing), `/admin/koi_transactions/new` (manual adjustment form with a live balance preview). Both the ledger user filter and the form's user picker use the shared `UserSearchCombobox` (`components/admin/UserSearchCombobox.tsx`) backed by the `users_search` JSON action — mirrors `featured_projects#projects_search`. `users_search` returns **verified users only** (`User.verified` → `type IS NULL`, so trial users are hidden) and accepts a raw numeric user id (pasting an id surfaces that exact user). The same controller/pages serve gold via `?currency=gold` (`current_currency` swaps the model) — there is no separate gold transactions controller or page. The shared `CurrencyToggle` (`components/admin/CurrencyToggle.tsx`) is the koi/gold switch on both pages. A plain `created_at` btree index on both tables backs the unfiltered `ORDER BY created_at DESC` listing.
 - API: `/api/v1/users/me` includes `koi: user.koi`.
 
 ### Spending: Shop Orders
 
 `ShopOrder` (`app/models/shop_order.rb`):
 - `frozen_price` snapshotted from `shop_item.price` on create (so price changes don't retroactively affect orders).
+- `frozen_koi_amount` / `frozen_gold_amount` snapshot the koi-first cost split (1 koi = 1 gold). `before_validation :split_cost` charges `total = frozen_price * quantity` against available koi first (`user.koi.clamp(0, total)`), the remainder in gold. **Koi-currency items accept gold** (gold is the premium currency — it can do anything koi can); **gold-currency items are gold-only** (`koi_part = 0`); hours items charge neither. Idempotent (skips when `frozen_koi_amount` is already set — 0 is truthy in Ruby).
 - `state` enum: `pending`, `fulfilled`, `rejected`, `on_hold`.
-- `before_validation :freeze_price, on: :create`.
-- `validate :user_can_afford, on: :create` — checks the right currency balance.
+- `before_validation :freeze_price, on: :create`, then `:split_cost`.
+- `validate :user_can_afford, on: :create` — for koi items checks `koi + gold >= total`; for gold items checks gold only. The split is computed and validated inside `ShopOrdersController#create`'s `current_user.with_lock` so concurrent orders can't double-spend.
 - Encrypts `phone` and `address` (PII of minors) at rest, non-deterministic.
 - `requires_shipping` items require `address` + `phone` validation.
 
@@ -593,7 +597,7 @@ Both `User#koi` and `User#gold` short-circuit to `0` for trial users. `ShopOrder
 | `pages/admin/reviews/requirements_checks/{index,show}.tsx` | RC queue + repo tree viewer (refresh via `refresh_tree`) |
 | `pages/admin/reviews/design_reviews/show.tsx` | DR queue (Phase 2 design ships) |
 | `pages/admin/reviews/build_reviews/show.tsx` | BR queue (Phase 2 build ships). Shows "Approval will convert N koi → N gold" preview below the Modify Gold field when this would be the project's first approved BR and the owner has koi to convert. |
-| `pages/admin/koi_transactions/{index,new}.tsx` | Admin koi **and gold** ledger + manual adjustment form — the `currency` prop (`?currency=gold`) switches the page between the two. No separate gold pages exist. |
+| `pages/admin/koi_transactions/{index,new}.tsx` | Admin koi **and gold** ledger (search + reason filter + stats bar) + manual adjustment form (user-search combobox + balance preview) — the `currency` prop (`?currency=gold`) switches the page between the two. No separate gold pages exist. Shared `components/admin/CurrencyToggle.tsx` is the koi/gold switch. |
 
 Each show page polls heartbeat and listens for 409 to surface "claim lost" UX.
 

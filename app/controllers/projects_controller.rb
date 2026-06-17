@@ -305,12 +305,13 @@ class ProjectsController < ApplicationController
 
   def serialize_journal_entry_card(journal_entry, content_html)
     content = journal_entry.content.to_s
-    is_blueprint_transfer = content.start_with?("Project transferred from Blueprint!")
+    transfer_match = content.match(/\AProject transferred from (Blueprint|Stasis)!/)
     hours_match = content.match(/Duration Transferred: ([\d.]+)h/)
     {
       id: journal_entry.id,
       content_html: content_html,
-      is_blueprint_transfer: is_blueprint_transfer,
+      is_blueprint_transfer: transfer_match.present?,
+      transfer_source: transfer_match&.[](1),
       blueprint_hours: hours_match ? hours_match[1].to_f : nil,
       images: journal_entry.images.map { |img| url_for(img) },
       recordings_count: policy(journal_entry).show? ? journal_entry.recordings.size : 0, # Only expose recording count to entry author/owner/collaborator

@@ -2,18 +2,20 @@
 #
 # Table name: shop_orders
 #
-#  id             :bigint           not null, primary key
-#  address        :text
-#  admin_note     :text
-#  frozen_price   :integer          not null
-#  phone          :text
-#  quantity       :integer          default(1), not null
-#  selected_dates :text             default([]), is an Array
-#  state          :string           default("pending"), not null
-#  created_at     :datetime         not null
-#  updated_at     :datetime         not null
-#  shop_item_id   :bigint           not null
-#  user_id        :bigint           not null
+#  id                 :bigint           not null, primary key
+#  address            :text
+#  admin_note         :text
+#  frozen_gold_amount :integer          default(0), not null
+#  frozen_koi_amount  :integer          not null
+#  frozen_price       :integer          not null
+#  phone              :text
+#  quantity           :integer          default(1), not null
+#  selected_dates     :text             default([]), is an Array
+#  state              :string           default("pending"), not null
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
+#  shop_item_id       :bigint           not null
+#  user_id            :bigint           not null
 #
 # Indexes
 #
@@ -39,8 +41,12 @@ class ShopOrder < ApplicationRecord
   enum :state, { pending: "pending", fulfilled: "fulfilled", rejected: "rejected", on_hold: "on_hold" }, default: "pending"
 
   before_validation :freeze_price, on: :create
+  # Splits the cost koi-first, gold-second (1 koi = 1 gold) — see #split_cost.
+  before_validation :split_cost, on: :create
 
   validates :frozen_price, presence: true, numericality: { greater_than: 0 }
+  validates :frozen_koi_amount, presence: true, numericality: { greater_than_or_equal_to: 0, only_integer: true }
+  validates :frozen_gold_amount, presence: true, numericality: { greater_than_or_equal_to: 0, only_integer: true }
   validates :quantity, presence: true, numericality: { greater_than: 0, only_integer: true }
   validates :address, presence: true, if: -> { shop_item&.requires_shipping? }
   validates :phone, presence: true, if: -> { shop_item&.requires_shipping? }
@@ -76,6 +82,23 @@ class ShopOrder < ApplicationRecord
     self.frozen_price ||= shop_item&.price
   end
 
+  # Koi items accept gold too (1 koi = 1 gold): spend the user's available koi first,
+  # cover the remainder in gold. Gold-only items can't be paid with koi — koi carries
+  # spending restrictions gold doesn't. Hours items aren't charged in either currency.
+  # Skips if already computed (0 is truthy in Ruby) so it's idempotent across valid? passes.
+  def split_cost
+    return if frozen_koi_amount
+    return unless shop_item && frozen_price && quantity
+
+    total = frozen_price * quantity
+    koi_part = case shop_item.currency
+    when "gold", "hours" then 0
+    else user ? user.koi.clamp(0, total) : 0
+    end
+    self.frozen_koi_amount = koi_part
+    self.frozen_gold_amount = shop_item.currency == "hours" ? 0 : total - koi_part
+  end
+
   def selected_dates_valid
     dates = Array(selected_dates).reject(&:blank?)
     invalid = dates - VALID_SUMMIT_DATES
@@ -89,17 +112,17 @@ class ShopOrder < ApplicationRecord
   end
 
   def user_can_afford
-    return unless user && shop_item && frozen_price && quantity
+    return unless user && shop_item && frozen_koi_amount && frozen_gold_amount
     return if user.trial? # trial users are blocked at policy level
 
-    total_cost = frozen_price * quantity
-    case shop_item.currency
-    when "gold"
-      errors.add(:base, "You don't have enough gold for this purchase") if user.gold < total_cost
-    when "hours"
+    if shop_item.currency == "hours"
       errors.add(:base, "This item cannot be purchased directly")
-    else
-      errors.add(:base, "You don't have enough koi for this purchase") if user.koi < total_cost
+      return
     end
+
+    return if user.koi >= frozen_koi_amount && user.gold >= frozen_gold_amount
+
+    needed = shop_item.currency == "gold" ? "gold" : "koi or gold"
+    errors.add(:base, "You don't have enough #{needed} for this purchase")
   end
 end

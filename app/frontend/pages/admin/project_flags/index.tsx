@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react'
+import { Link, Deferred } from '@inertiajs/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import AdminLayout from '@/layouts/AdminLayout'
 import { Badge } from '@/components/admin/ui/badge'
+import { Skeleton } from '@/components/admin/ui/skeleton'
 import { DataTable } from '@/components/admin/DataTable'
+import { DataTableSkeleton } from '@/components/admin/DataTableSkeleton'
 import TimeAgo from '@/components/shared/TimeAgo'
 import type { ProjectFlag, PagyProps } from '@/types'
 
@@ -18,9 +21,14 @@ const columns: ColumnDef<ProjectFlag>[] = [
     accessorKey: 'project_name',
     header: 'Project',
     cell: ({ row }) => (
-      <a href={`/admin/projects/${row.original.project_id}`} className="font-medium hover:underline">
+      <Link
+        href={`/admin/projects/${row.original.project_id}`}
+        prefetch
+        cacheFor="30s"
+        className="font-medium hover:underline"
+      >
         {row.original.project_name}
-      </a>
+      </Link>
     ),
   },
   {
@@ -67,20 +75,20 @@ const columns: ColumnDef<ProjectFlag>[] = [
   },
 ]
 
-export default function ProjectFlagsIndex({ flags, pagy }: { flags: ProjectFlag[]; pagy: PagyProps }) {
+export default function ProjectFlagsIndex({ flags, pagy }: { flags?: ProjectFlag[]; pagy?: PagyProps }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold tracking-tight">
           Flagged Projects
-          {flags.length > 0 && (
-            <Badge variant="destructive" className="ml-2 text-xs">
-              {pagy.count}
-            </Badge>
-          )}
+          <Badge variant="destructive" className="ml-2 text-xs">
+            {pagy?.count ?? <Skeleton className="h-4 w-8" />}
+          </Badge>
         </h2>
       </div>
-      <DataTable columns={columns} data={flags} pagy={pagy} noun="flagged projects" />
+      <Deferred data={['flags', 'pagy']} fallback={<DataTableSkeleton columns={columns.length} />}>
+        <DataTable columns={columns} data={flags ?? []} pagy={pagy} noun="flagged projects" />
+      </Deferred>
     </div>
   )
 }

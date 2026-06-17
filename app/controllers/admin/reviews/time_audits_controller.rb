@@ -1,21 +1,11 @@
 class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
   def index
-    base = policy_scope(TimeAuditReview)
-      .includes(ship: [ :project, :requirements_check_review, :time_audit_review, project: :user ], reviewer: [])
-
-    pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).order(created_at: :asc).load
-    @pagy, @all_reviews = pagy(base.order(created_at: :desc))
-    flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
-    Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
-    priority_ids = ReviewPriorityCalculator.priority_ship_ids(pending_reviews.map(&:ship))
-    pending_reviews = sort_pending(pending_reviews, nil, {}, priority_ids)
-
+    # Filter/sort chrome and stats keys render instantly; the heavy queue lists are deferred
+    # so the page shell appears immediately and the tables show a skeleton until data lands.
     render inertia: {
-      pending_reviews: pending_reviews.map { |r| serialize_review_row(r, priority_ship_ids: priority_ids) },
-      all_reviews: @all_reviews.map { |r| serialize_review_row(r, flagged_project_ids: flagged_ids) },
-      pagy: pagy_props(@pagy),
       start_reviewing_path: next_admin_reviews_time_audits_path,
-      **review_stats_props(TimeAuditReview)
+      **review_stats_props(TimeAuditReview),
+      **deferred_index_props
     }
   end
 
@@ -37,8 +27,8 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
       review: serialize_review_detail(@review),
       ship: serialize_ship_context(ship),
       project: serialize_project_context(project),
-      new_entries: new_entries.map { |je| serialize_journal_entry(je) },
-      previous_entries: previous_entries.map { |je| serialize_journal_entry(je) },
+      new_entries: new_entries.map { |je| serialize_journal_entry(je, ship) },
+      previous_entries: previous_entries.map { |je| serialize_journal_entry(je, ship) },
       sibling_statuses: serialize_sibling_statuses(ship),
       reviewer_notes: InertiaRails.defer { serialize_reviewer_notes(project) },
       reviewer_notes_path: admin_project_reviewer_notes_path(project),
@@ -84,6 +74,35 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
   end
 
   private
+
+  # Memoized loader shared by the deferred index props so the heavy queue query runs once per
+  # deferred request even though pending_reviews/all_reviews/pagy are separate Inertia props.
+  def deferred_index_props
+    memo = nil
+    load = lambda do
+      memo ||= begin
+        base = policy_scope(TimeAuditReview)
+          .includes(ship: [ :project, :requirements_check_review, :time_audit_review, project: :user ], reviewer: [])
+
+        pending_reviews = base.pending.where.not(ship_id: flagged_ship_ids).order(created_at: :asc).load
+        @pagy, @all_reviews = pagy(base.order(created_at: :desc))
+        flagged_ids = ProjectFlag.distinct.pluck(:project_id).to_set
+        Ship.preload_cycle_started_at((pending_reviews + @all_reviews).map(&:ship)) # avoid N+1 in serialize_review_row (dedup done inside)
+        priority_ids = ReviewPriorityCalculator.priority_ship_ids(pending_reviews.map(&:ship))
+        pending_reviews = sort_pending(pending_reviews, nil, {}, priority_ids)
+        {
+          pending_reviews: pending_reviews.map { |r| serialize_review_row(r, priority_ship_ids: priority_ids) },
+          all_reviews: @all_reviews.map { |r| serialize_review_row(r, flagged_project_ids: flagged_ids) },
+          pagy: pagy_props(@pagy)
+        }
+      end
+    end
+    {
+      pending_reviews: InertiaRails.defer(group: "index") { load.call[:pending_reviews] },
+      all_reviews: InertiaRails.defer(group: "index") { load.call[:all_reviews] },
+      pagy: InertiaRails.defer(group: "index") { load.call[:pagy] }
+    }
+  end
 
   def review_model
     TimeAuditReview
@@ -168,7 +187,7 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
     }
   end
 
-  def serialize_journal_entry(journal_entry)
+  def serialize_journal_entry(journal_entry, ship)
     {
       id: journal_entry.id,
       content_html: helpers.render_user_markdown(journal_entry.content.to_s),
@@ -178,7 +197,8 @@ class Admin::Reviews::TimeAuditsController < Admin::Reviews::BaseController
       created_at: journal_entry.created_at.strftime("%b %d, %Y"),
       created_at_iso: journal_entry.created_at.iso8601,
       recordings: journal_entry.recordings.map { |r| serialize_recording(r) },
-      total_duration: journal_entry.recordings.sum { |r| recording_duration(r) }
+      total_duration: journal_entry.recordings.sum { |r| recording_duration(r) },
+      in_ship: journal_entry.ship_id == ship.id # Entry was claimed by the ship under review (vs an older ship)
     }
   end
 

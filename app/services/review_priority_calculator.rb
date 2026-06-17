@@ -1,9 +1,11 @@
 # Flags pending review ships whose collaborators are at/near the approval-hours qualification
 # thresholds, so reviewers can prioritise them. A ship is "priority" when ANY one collaborator
-# (owner or kept collaborator), evaluated independently, either:
+# (owner or kept collaborator), evaluated independently, is not yet qualified (< PROJECTION_SECONDS
+# approved) AND either:
 #   (a) already has >= QUALIFY_SECONDS of approved public hours, or
 #   (b) would cross PROJECTION_SECONDS once this ship's hours land — only when the Time Audit
 #       has already approved (so the ship's eventual approved hours are known).
+# Collaborators who have already qualified (>= PROJECTION_SECONDS) don't need a priority review.
 #
 # Approved hours are the live, per-user proportional total (matching User#approved_time_logged_seconds /
 # HoursStatsCalculator). Computed in bulk for all ships at once — no per-row queries.
@@ -34,6 +36,7 @@ class ReviewPriorityCalculator
     @ships.each_with_object(Set.new) do |ship, set|
       qualifies = (members[ship.project_id] || []).any? do |uid|
         seconds = current[uid].to_i
+        next false if seconds >= PROJECTION_SECONDS # already qualified — no priority review needed
         next true if seconds >= QUALIFY_SECONDS
         added = projected.dig(ship.id, uid).to_i
         added.positive? && seconds + added >= PROJECTION_SECONDS

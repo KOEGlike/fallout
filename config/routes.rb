@@ -435,7 +435,7 @@ Rails.application.routes.draw do
       resources :hours_stats, only: [ :index ] do
         collection { post :refresh }
       end
-      resources :shop_items, only: [ :index, :create, :update, :destroy ] # Admin shop item management
+      resources :shop_items, only: [ :index, :new, :create, :edit, :update, :destroy ] # Admin shop item management
       resources :shop_orders, only: [ :index, :show, :update ] # Admin order management
       resources :ticket_claims, only: [ :index ] do # Admin event ticket claim review
         member do
@@ -447,7 +447,9 @@ Rails.application.routes.draw do
           patch :bulk_reject
         end
       end
-      resources :koi_transactions, only: [ :index, :new, :create ] # Admin koi adjustments
+      resources :koi_transactions, only: [ :index, :new, :create ] do # Admin koi adjustments
+        get :users_search, on: :collection # Autocomplete for the adjustment user picker
+      end
       resources :you_tube_videos, only: [] do
         member do
           post :refetch # Re-fetch YouTube metadata for videos with missing duration
