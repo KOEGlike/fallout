@@ -157,9 +157,9 @@ class User < ApplicationRecord
   SLACK_WELCOME_CHANNELS = %w[C037157AL30 C0ACG0XQWGN C0ACJ290090].freeze
 
   # Ban types in priority order (highest first). Higher-priority bans take precedence.
-  BAN_PRIORITY = %w[fallout hcb hardware age hackatime].freeze
+  BAN_PRIORITY = %w[fallout conduct hcb hardware age hackatime].freeze
   # Ban types set/managed manually by humans — UserBanCheckJob will not override these
-  MANUAL_BAN_TYPES = %w[fallout hcb hardware age].freeze
+  MANUAL_BAN_TYPES = %w[fallout conduct hcb hardware age].freeze
 
   validates :roles, presence: true, unless: :trial?
   validate :roles_must_be_valid, unless: :trial?

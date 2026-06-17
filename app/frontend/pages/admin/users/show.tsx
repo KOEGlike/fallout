@@ -254,7 +254,7 @@ function RolesEditor({ user, validRoles, isSelf }: { user: AdminUserDetail; vali
 function BanEditor({ user }: { user: AdminUserDetail }) {
   const isBanned = user.is_banned
   const isHackatimeBan = user.ban_type === 'hackatime'
-  const MANUAL_BAN_TYPES = ['fallout', 'hcb', 'hardware', 'age'] as const
+  const MANUAL_BAN_TYPES = ['fallout', 'conduct', 'hcb', 'hardware', 'age'] as const
   const [banType, setBanType] = useState<string>(
     user.ban_type && user.ban_type !== 'hackatime' ? user.ban_type : 'fallout',
   )

@@ -1,4 +1,4 @@
-export type BanType = 'fallout' | 'hcb' | 'hardware' | 'age' | 'hackatime'
+export type BanType = 'fallout' | 'hcb' | 'hardware' | 'age' | 'hackatime' | 'conduct'
 
 export interface User {
   id: number
