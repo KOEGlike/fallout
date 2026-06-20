@@ -213,10 +213,11 @@ class SoupCampaign < ApplicationRecord
       Regexp.last_match(1).downcase == "true" ? scope.joins(projects: :ships) : scope.where.not(id: User.joins(projects: :ships).select(:id))
     when /\Aqualified:\s*(true|false)\z/i
       filter_by_ticket_qualification(scope, Regexp.last_match(1).downcase == "true")
-    when /\Atotal_time_(logged|submitted)_seconds\s*(>=|<=|=|>|<)\s*(\d+)\z/i
-      metric = Regexp.last_match(1).downcase
-      operator = Regexp.last_match(2)
-      threshold = Regexp.last_match(3).to_i
+    when /\Atotal_time_(logged|submitted)_seconds\s*(>=|<=|=|>|<)\s*(\d+|ticket_hours)\z/i
+      metric    = Regexp.last_match(1).downcase
+      operator  = Regexp.last_match(2)
+      raw       = Regexp.last_match(3)
+      threshold = raw.match?(/\A\d+\z/) ? raw.to_i : raw.to_sym
       filter_by_total_time(scope, operator, threshold, shipped_only: metric == "submitted")
     else
       raise ArgumentError, "unsupported audience filter: #{filter}"
@@ -226,15 +227,35 @@ class SoupCampaign < ApplicationRecord
   # shipped_only restricts journal-entry time to entries attached to a ship (any status).
   # manual_seconds are always included — they're admin-set hours that can't be tied to a ship
   # but count toward a user's total regardless of mode.
+  # threshold can be an Integer (fixed seconds) or a Symbol variable (e.g. :ticket_hours —
+  # resolved per-user so each user is compared against their own value).
   def filter_by_total_time(scope, operator, threshold, shipped_only: false)
     user_ids = scope.pluck(:id)
     return scope.none if user_ids.empty?
 
     seconds_by_user = compute_batch_user_seconds(user_ids, shipped_only: shipped_only)
+    threshold_by_user = threshold.is_a?(Symbol) ? resolve_variable(user_ids, threshold) : nil
+
     # Iterate the full id list (not just hash keys) so users with zero attributed seconds
     # still match <, <= and = 0 — they're absent from the totals hash otherwise.
-    matching_ids = user_ids.select { |uid| seconds_by_user[uid].to_i.public_send(operator, threshold) }
+    matching_ids = user_ids.select do |uid|
+      limit = threshold_by_user ? threshold_by_user[uid].to_i : threshold
+      seconds_by_user[uid].to_i.public_send(operator, limit)
+    end
     scope.where(id: matching_ids)
+  end
+
+  # Resolves a named variable to a per-user hash of { user_id => seconds }.
+  VARIABLES = {
+    ticket_hours: ->(user_ids) {
+      User.where(id: user_ids).pluck(:id, :ticket_hours_override)
+          .to_h { |id, override| [ id, (override || 60) * 3600 ] }
+    }
+  }.freeze
+
+  def resolve_variable(user_ids, variable)
+    fn = VARIABLES[variable] or raise ArgumentError, "unknown variable: #{variable}"
+    fn.call(user_ids)
   end
 
   def compute_batch_user_seconds(user_ids, shipped_only: false)

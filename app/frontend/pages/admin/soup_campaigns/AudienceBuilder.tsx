@@ -19,11 +19,21 @@ interface Row {
   id: string
   kind: Kind
   op?: Op // logged / submitted
-  hours?: string // logged / submitted (string so the field can be empty mid-edit)
+  hours?: string // logged / submitted fixed value (string so the field can be empty mid-edit)
+  hoursVar?: string // logged / submitted variable name (e.g. 'ticket_hours') — mutually exclusive with hours
   bool?: boolean // qualified / has_ships
   ids?: string // ids (comma-separated)
   raw?: string // unrecognized line, preserved verbatim
 }
+
+// Variables that can be used as the RHS of a time comparison instead of a fixed number.
+const TIME_VARIABLES: { value: string; label: string; title: string }[] = [
+  {
+    value: 'ticket_hours',
+    label: 'Ticket hours',
+    title: "Each user's required hours (60h default, or their individual override)",
+  },
+]
 
 interface Query {
   mode: Mode
@@ -72,14 +82,16 @@ function parseQuery(text: string): Query {
         rows.push({ id: `p${i}`, kind: 'has_ships', bool: m[1].toLowerCase() === 'true' })
       else if ((m = line.match(/^qualified:\s*(true|false)$/i)))
         rows.push({ id: `p${i}`, kind: 'qualified', bool: m[1].toLowerCase() === 'true' })
-      else if ((m = line.match(/^total_time_(logged|submitted)_seconds\s*(>=|<=|=|>|<)\s*(\d+)$/i)))
+      else if ((m = line.match(/^total_time_(logged|submitted)_seconds\s*(>=|<=|=|>|<)\s*(\d+|[a-z_]+)$/i))) {
+        const isVar = !/^\d+$/.test(m[3])
         rows.push({
           id: `p${i}`,
           kind: m[1].toLowerCase() === 'submitted' ? 'submitted' : 'logged',
           op: m[2] as Op,
-          hours: secondsToHours(Number(m[3])),
+          hours: isVar ? '' : secondsToHours(Number(m[3])),
+          hoursVar: isVar ? m[3] : undefined,
         })
-      else rows.push({ id: `p${i}`, kind: 'raw', raw: line })
+      } else rows.push({ id: `p${i}`, kind: 'raw', raw: line })
     })
   return { mode, rows }
 }
@@ -94,9 +106,10 @@ function serializeRow(r: Row): string {
       return `qualified: ${r.bool ? 'true' : 'false'}`
     case 'logged':
     case 'submitted': {
+      const field = r.kind === 'submitted' ? 'total_time_submitted_seconds' : 'total_time_logged_seconds'
+      if (r.hoursVar) return `${field} ${r.op ?? '>='} ${r.hoursVar}`
       const h = parseFloat(r.hours ?? '')
       if (!isFinite(h) || (r.hours ?? '').trim() === '') return ''
-      const field = r.kind === 'submitted' ? 'total_time_submitted_seconds' : 'total_time_logged_seconds'
       return `${field} ${r.op ?? '>='} ${Math.round(h * 3600)}`
     }
     case 'raw':
@@ -336,20 +349,54 @@ function RowEditor({
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-1.5">
-            <Input
-              type="number"
-              min={0}
-              step="any"
-              inputMode="decimal"
-              value={row.hours ?? ''}
-              onChange={(e) => onUpdate(row.id, { hours: e.target.value })}
-              placeholder="60"
-              className="h-8 w-20"
-              aria-label={`${meta.label} threshold`}
-            />
-            <span className="text-sm text-muted-foreground">hours</span>
-          </div>
+
+          {row.hoursVar ? (
+            <Select value={row.hoursVar} onValueChange={(v) => onUpdate(row.id, { hoursVar: v })}>
+              <SelectTrigger className="h-8 w-[9rem] shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIME_VARIABLES.map((v) => (
+                  <SelectItem key={v.value} value={v.value} title={v.title}>
+                    {v.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
+                value={row.hours ?? ''}
+                onChange={(e) => onUpdate(row.id, { hours: e.target.value })}
+                placeholder="60"
+                className="h-8 w-20"
+                aria-label={`${meta.label} threshold`}
+              />
+              <span className="text-sm text-muted-foreground">hours</span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            title={row.hoursVar ? 'Use a fixed number' : 'Compare to a variable'}
+            onClick={() =>
+              onUpdate(
+                row.id,
+                row.hoursVar ? { hoursVar: undefined } : { hoursVar: TIME_VARIABLES[0].value, hours: '' },
+              )
+            }
+            className={`shrink-0 h-8 w-8 rounded-md border font-mono text-xs transition-colors flex items-center justify-center ${
+              row.hoursVar
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'border-input text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {'{}'}
+          </button>
         </>
       )}
 
